@@ -30,6 +30,13 @@ class doubleVector{
 		void print_neighbors(void);
 };
 
+class index_position{
+	public:
+		int i = 0;
+		int j = 0;
+		double max = -100.0;
+};
+
 void doubleVector::print_neighbors(void){
 	//prints src and target neighbors;
 	cout<<"src_neighbors: ";
@@ -270,7 +277,101 @@ void calculate_stress(vector<vector<int>> &src, vector<vector<int>> &tar, vector
 	/* print_totalStress(stress); */
 }
 
-void swap(vector<vector<int>> &src, vector<vector<vector<double>>> &positional_stress, vector<vector<double>> &stress, int cv){
+
+index_position get_max(vector<vector<double>> &stress){
+	// stress is pre-conditioned in apply_competency
+	int max_i = 0, max_j = 0;
+
+	double max_val = -1000.0;
+
+	for(int i = 0; i<int(stress.size()); ++i){
+		for (int j = 0; j<int(stress.size()); ++j){
+			if (stress[i][j] > max_val){
+				max_val = stress[i][j];
+				max_i = i;
+				max_j = j;
+			}
+		}
+	}
+	index_position temp;
+	temp.i = max_i;
+	temp.j = max_j;
+	temp.max = max_val;
+
+	return temp;
+}
+
+index_position get_idxs_from_directions(index_position current_pos, int swap_direction){
+	//src and swap_direction are preconditioned (warning: cannot be called separtely from apply_competency)
+	
+	index_position temp;
+	// based on swap_pos index, choose cooresponding matrix coordinates
+	if (swap_direction ==  0){
+		//north neighbor
+		temp.i = current_pos.i-1;
+		temp.j = current_pos.j;	
+	}
+
+	else if (swap_direction == 1){
+		//south 
+		temp.i = current_pos.i + 1;
+		temp.j = current_pos.j;
+	}
+
+	else if (swap_direction == 2){
+		//west
+		temp.i = current_pos.i;
+		temp.j = current_pos.j-1;
+	}
+
+	else if (swap_direction == 3){
+		//east
+		temp.i = current_pos.i;
+		temp.j = current_pos.j +1;
+	}
+
+	else if (swap_direction == 4){
+		//nw
+		temp.i = current_pos.i -1;
+		temp.j = current_pos.j -1;
+	}
+
+	else if (swap_direction == 5){
+		//ne
+		temp.i = current_pos.i -1;
+		temp.j = current_pos.j +1;
+	}
+
+	else if (swap_direction == 6){
+		//sw
+		temp.i = current_pos.i +1;
+		temp.j = current_pos.j -1;
+	}
+
+	else if (swap_direction == 7){
+		//se
+		temp.i = current_pos.i +1;
+		temp.j = current_pos.j +1;
+	}
+
+	return temp;
+}
+
+vector<vector<int>> matrix_element_swap(vector<vector<int>> temp_src, vector<vector<int>> tar, index_position curr_pos ,int swap_pos){ // pass by reference is intentionally disabled 
+	if (swap_pos <0) throw runtime_error("swap direction must be positive\n");
+
+	index_position new_pos = get_idxs_from_directions(curr_pos, swap_pos);
+
+	double temp_val = 0.0;
+	temp_val = temp_src[curr_pos.i][curr_pos.j];
+	temp_src[curr_pos.i][curr_pos.j] = temp_src[new_pos.i][new_pos.j];
+	temp_src[new_pos.i][new_pos.j] = temp_val;
+
+	return temp_src;
+
+}
+
+int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vector<double>>> &positional_stress, vector<vector<double>> &stress, int cv, int n_directions){
 
 	// src and cv will be pre-conditioned in apply_competency 
 	// stress matrix does not require pre-conditioning
@@ -285,7 +386,63 @@ void swap(vector<vector<int>> &src, vector<vector<vector<double>>> &positional_s
 	//  repeat until swap counter exceeds competency_value: cv, or if stress levels are 0 in all positions 
 	//
 	//  There seems to be no point to stress sharing, because sharing stress does not change the tendency of each cell-position to swap until its stress is low.
-	//  Also, Swaps cannot be with the max stress inducing neighbor, it has to be random so that cyclic behviour does not result (simply gets stuck swapping between two positions)
+	//  Also, Swaps cannot be with the max stress inducing neighbor, it has to be random so that cyclic behviour does not result (swapping between two positions)
+	
+	int n_swaps = 0;
+	int idx_i = -100, idx_j = -100;
+
+	index_position curr_pos = get_max(stress);
+
+	while ((n_swaps <=cv) && (curr_pos.max != 0.0)){
+		// if there are no swaps left then make sure the competency value is not mutated anymore, perhaps include a flag
+		//
+		vector<vector<vector<double>>> temp_ps = positional_stress;
+		vector<vector<double>> temp_stress = stress;
+
+		//get idxs of most stressed cell 
+		idx_i = curr_pos.i;
+		idx_j = curr_pos.j;
+
+		// get the current stress level
+		double current_stress = stress[idx_i][idx_j];
+
+		//pick a random neighbor of the cell from its positional stress matrix
+		int selected_pos = -100;
+		double new_stress = -100.0;
+		vector<vector<int>> temp_src;
+		do{
+
+			do{
+				selected_pos = roll_dice(n_directions);
+			}
+			while (positional_stress[idx_i][idx_j][selected_pos] == -1); // make sure you don't pick a neighbor which doesn't exist	
+			
+			// make sure you swap only if stress at that position decreases
+			//
+			// first carry out a temporatry swap
+			vector<vector<int>> temp_src = matrix_element_swap(src, tar, curr_pos, selected_pos); 
+
+			// recalculate stress 
+			calculate_stress (temp_src, tar, temp_ps, temp_stress);
+			double new_stress = temp_stress[idx_i][idx_j];
+		}
+		// repeat if new_stress > current_stress
+		while (new_stress > current_stress);
+
+		// check once again if new stress is lower than current stress and update relevant matrixes
+		if (new_stress <= current_stress){
+			src = temp_src;
+			positional_stress = temp_ps;
+			stress = temp_stress;
+			n_swaps += 1;
+			curr_pos = get_max(stress); //update our knowledge of max stress
+		}	
+
+		else throw runtime_error("the do while loop is not doing its job, check your code\n");
+	
+	}
+
+	return n_swaps;
 		
 }
 
@@ -375,7 +532,9 @@ void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv
 	/* print_totalStress(stress); */ 
 	
 	calculate_stress(src, tar, positional_stress, stress); // stress will be a matrix: each position will carry a stress value
-	swap(src, positional_stress, stress, cv);
+	int swaps_executed = swap(src, tar, positional_stress, stress, cv, n_directions);
+
+	cout<<"swaps executed: "<<swaps_executed<<" and cv: "<<cv<<"\n";
 }
 
 
