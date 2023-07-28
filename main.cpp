@@ -358,7 +358,7 @@ index_position get_idxs_from_directions(index_position current_pos, int swap_dir
 	return temp;
 }
 
-vector<vector<int>> matrix_element_swap(vector<vector<int>> temp_src, vector<vector<int>> tar, index_position curr_pos ,int swap_pos){ // pass by reference is intentionally disabled 
+vector<vector<int>> matrix_element_swap(vector<vector<int>> temp_src, index_position curr_pos ,int swap_pos){ // pass by reference is intentionally disabled 
 	if (swap_pos <0) throw runtime_error("swap direction must be positive\n");
 
 	index_position new_pos = get_idxs_from_directions(curr_pos, swap_pos);
@@ -424,7 +424,7 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 			// make sure you swap only if stress at that position decreases
 			//
 			// first carry out a temporatry swap
-			temp_src = matrix_element_swap(src, tar, curr_pos, selected_pos); 
+			temp_src = matrix_element_swap(src, curr_pos, selected_pos); 
 			// recalculate stress 
 			calculate_stress (temp_src, tar, temp_ps, temp_stress);
 			new_stress = temp_stress[idx_i][idx_j];
@@ -546,6 +546,69 @@ void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv
 }
 
 
+vector<vector<vector<int>>> create_population(vector<vector<int>> &tar, int n_individuals){
+	// creates a population of matrices
+	
+	//pre-conditions:
+	if (n_individuals<0) throw runtime_error("Number of individuals must be positive\n");
+	if (n_individuals ==0) cerr<<"Warning: Number of individuals set to 0\n";
+
+	if (int(tar.size()) ==0) throw runtime_error("Empty Target Matrix\n");
+
+	vector<vector<vector<int>>> pop(n_individuals);
+	for (int i = 0; i<n_individuals; ++i){
+		pop[i] = get_individual(tar);
+	}
+	return pop;
+}
+
+void update_fitness(vector<int> &prev_fitness, vector<vector<vector<int>>> &population, vector<vector<int>> &target){
+
+	// takes a set of fitnesses and updates to them to that of the current population
+
+	if (int(population.size()) == 0) throw runtime_error("Population must have atleast one element\n");
+	if (int(prev_fitness.size()) == 0) throw runtime_error("Fitness vector is empty; it must be pre-initialized\n");
+	
+	for (int i =0; i<int(population.size()); ++i){
+		prev_fitness[i] = fitness(population[i], target);	
+	}	
+}
+
+
+
+void evolve(vector<vector<int>> &target, int n_iterations){
+
+	// pre-conditioning
+	if(n_iterations<=0) throw runtime_error("Number of iterations must be >=1\n");
+
+	//initialize population
+	vector<vector<vector<int>>> population = create_population(target, n_individuals);
+
+	//initialize competency values
+
+	//initialize fitness vector to zeros
+	vector<int> fitness(n_individuals);
+
+	for (int i = 0; i<n_iterations; ++i){
+		//calculate initial fitness
+		update_fitness(fitness, population, target);
+
+		//write fitness to hardwired fitness file
+
+		//apply competency based on competency value
+		
+		// update phenotypic fitness
+
+		// write phenotypic fitness to phenotypic fitness file
+		
+		// selection based on phenotypic fitness
+		
+		// mutate population as well as the competency value
+
+	}
+
+}
+
 
 int main(){
 
@@ -554,6 +617,8 @@ int main(){
 	int seed = 9;
 	int n_directions = 8;
 	int competency_value = 100;
+	int n_individuals = 1000;
+	int n_iterations = 1000;
 
 	try {
 
@@ -561,9 +626,7 @@ int main(){
 
 		// warning: make sure that the same elements exist in target and source. Best thing would be to scramble the target matrix in different ways
 		
-
-		//assuming a matrix of size 3x3 and n_kinds = 2	
-		//set elements of the target;
+		//set elements of the target, the structure of which determines structure of the source. Note n_kinds = 2 for now.
 		target.push_back(vector<int> {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
 		target.push_back(vector<int> {0, 1, 0, 0, 0, 0, 0, 0, 0, 0});
 		target.push_back(vector<int> {0, 0, 1, 0, 0, 0, 0, 0, 0, 0});
@@ -580,15 +643,10 @@ int main(){
 
 		srand(seed);
 
-		vector<vector<int>> src = get_individual(target);
-		print_individual(src);
-		print_individual(target);
+		evolve(target, n_iterations);
+		/* apply_competency(src, target, competency_value, n_directions); */
 
-		/* cout<<"fitness: "<<fitness(src, target)<<"\n"; */
-
-		apply_competency(src, target, competency_value, n_directions);
-
-
+		
 		return 0;	
 	}	
 
