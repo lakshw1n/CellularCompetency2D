@@ -111,6 +111,7 @@ void print_individual(vector<vector<int>> &v1){
 		}
 		cout<<"\n";
 	}
+	cout<<"\n=======\n";
 }
 
 double fitness(vector<vector<int>> &source, vector<vector<int>> &target){
@@ -216,7 +217,7 @@ vector<double> compare_neighbors(doubleVector &neighbors){
 	// pre-condition for neighbors array:
 	int count = 0;
 	for (int i =0; i<neighbors.size; ++i){
-		if (neighbors.src_neighbors[i] >0 || neighbors.tar_neighbors[i] > 0) count ++;
+		if (neighbors.src_neighbors[i] >=0 || neighbors.tar_neighbors[i] >= 0) count ++;
 	}
 
 	if (count == 0) throw runtime_error("Neighborhood array is empty\n");
@@ -393,38 +394,40 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 
 	index_position curr_pos = get_max(stress);
 
-	while ((n_swaps <=cv) && (curr_pos.max != 0.0)){
+	vector<vector<vector<double>>> temp_ps = positional_stress;
+	vector<vector<double>> temp_stress = stress;
+	vector<vector<int>> temp_src = src;
+
+	
+	while ((n_swaps <cv) && (curr_pos.max != 0.0)){
 		// if there are no swaps left then make sure the competency value is not mutated anymore, perhaps include a flag
 		//
-		vector<vector<vector<double>>> temp_ps = positional_stress;
-		vector<vector<double>> temp_stress = stress;
-
+		
 		//get idxs of most stressed cell 
 		idx_i = curr_pos.i;
 		idx_j = curr_pos.j;
 
 		// get the current stress level
 		double current_stress = stress[idx_i][idx_j];
+		double new_stress = current_stress; 
 
 		//pick a random neighbor of the cell from its positional stress matrix
 		int selected_pos = -100;
-		double new_stress = -100.0;
-		vector<vector<int>> temp_src;
+
 		do{
 
 			do{
 				selected_pos = roll_dice(n_directions);
 			}
 			while (positional_stress[idx_i][idx_j][selected_pos] == -1); // make sure you don't pick a neighbor which doesn't exist	
-			
+																		 //
 			// make sure you swap only if stress at that position decreases
 			//
 			// first carry out a temporatry swap
-			vector<vector<int>> temp_src = matrix_element_swap(src, tar, curr_pos, selected_pos); 
-
+			temp_src = matrix_element_swap(src, tar, curr_pos, selected_pos); 
 			// recalculate stress 
 			calculate_stress (temp_src, tar, temp_ps, temp_stress);
-			double new_stress = temp_stress[idx_i][idx_j];
+			new_stress = temp_stress[idx_i][idx_j];
 		}
 		// repeat if new_stress > current_stress
 		while (new_stress > current_stress);
@@ -435,16 +438,21 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 			positional_stress = temp_ps;
 			stress = temp_stress;
 			n_swaps += 1;
+			current_stress = new_stress;
 			curr_pos = get_max(stress); //update our knowledge of max stress
+
 		}	
 
 		else throw runtime_error("the do while loop is not doing its job, check your code\n");
+
+		cout<<"Fitness after: "<<fitness(src, tar)<<"\n";	
 	
 	}
 
 	return n_swaps;
 		
 }
+
 
 void initialize_3d(int size, int n_directions, vector<vector<vector<double>>> &positional_stress){
 
@@ -504,7 +512,7 @@ void print_totalStress(vector<vector<double>> &stress){
 void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv, int n_directions){
 
 	// reshuffles the src matrix based on the competency value 
-	
+	//	
 	if (cv <0) throw runtime_error("Competency value must be positive\n"); // basic checks
 	if (src.size()<0) throw runtime_error("src matrix must have some elements\n"); //basic checks
 	if (src.size() != tar.size()) throw runtime_error("src and target matrices must be of the same size\n");
@@ -534,7 +542,7 @@ void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv
 	calculate_stress(src, tar, positional_stress, stress); // stress will be a matrix: each position will carry a stress value
 	int swaps_executed = swap(src, tar, positional_stress, stress, cv, n_directions);
 
-	cout<<"swaps executed: "<<swaps_executed<<" and cv: "<<cv<<"\n";
+	/* cout<<"swaps executed: "<<swaps_executed<<" and cv: "<<cv<<"\n"; */
 }
 
 
@@ -543,8 +551,9 @@ int main(){
 
 	//assumption: 2d matrices are square
 
-	int seed = 10;
+	int seed = 9;
 	int n_directions = 8;
+	int competency_value = 100;
 
 	try {
 
@@ -555,9 +564,19 @@ int main(){
 
 		//assuming a matrix of size 3x3 and n_kinds = 2	
 		//set elements of the target;
-		target.push_back(vector<int> {1, 0, 0});
-		target.push_back(vector<int> {0, 1, 0});
-		target.push_back(vector<int> {0, 0, 1});
+		target.push_back(vector<int> {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+		target.push_back(vector<int> {0, 1, 0, 0, 0, 0, 0, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 1, 0, 0, 0, 0, 0, 0, 0});
+
+		target.push_back(vector<int> {0, 0, 0, 1, 0, 0, 0, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 0, 1, 0, 0, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 0, 0, 1, 0, 0, 0, 0});
+
+		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 1, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 1, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 0, 1, 0});
+
+		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 0, 0, 1});
 
 		srand(seed);
 
@@ -567,8 +586,7 @@ int main(){
 
 		/* cout<<"fitness: "<<fitness(src, target)<<"\n"; */
 
-
-		apply_competency(src, target, 3, n_directions);
+		apply_competency(src, target, competency_value, n_directions);
 
 
 		return 0;	
