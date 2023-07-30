@@ -4,6 +4,8 @@
 
 #include <iostream>
 #include <math.h>
+#include <fstream>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -574,12 +576,29 @@ void update_fitness(vector<int> &prev_fitness, vector<vector<vector<int>>> &popu
 	}	
 }
 
+string create_file(string f_kind){
+ 
+    const auto now = chrono::system_clock::now();
+    const time_t t_c = chrono::system_clock::to_time_t(now);
+    string curr_time =  ctime(&t_c);
+
+	fname = f_kind + '_' + curr_time;
+
+	ofstream customfile(fname);
+	customfile.close();
+
+	return fname;
+}
 
 
-void evolve(vector<vector<int>> &target, int n_iterations){
+
+void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int runs, string hw_fname, string comp_fname){
 
 	// pre-conditioning
 	if(n_iterations<=0) throw runtime_error("Number of iterations must be >=1\n");
+	if(n_individuals<=0) throw runtime_error("Number of individuals must be >0\n");
+	if(n_runs <=0) throw runtime_error("Number of runs must be >0\n");
+	if (int(hw_fname.size()) ==0 || int(comp_fname.size()) == 0) throw runtime_error("hw / comp filenames must be provided\n");
 
 	//initialize population
 	vector<vector<vector<int>>> population = create_population(target, n_individuals);
@@ -619,6 +638,7 @@ int main(){
 	int competency_value = 100;
 	int n_individuals = 1000;
 	int n_iterations = 1000;
+	int n_runs = 4;
 
 	try {
 
@@ -641,9 +661,12 @@ int main(){
 
 		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 0, 0, 1});
 
+		hw_file = create_file('hardwired_fitness');
+		comp_file = create_file('competent_fitness');
+
 		srand(seed);
 
-		evolve(target, n_iterations);
+		evolve(target, n_iterations, n_individuals, n_runs, hw_file, comp_file);
 		/* apply_competency(src, target, competency_value, n_directions); */
 
 		
