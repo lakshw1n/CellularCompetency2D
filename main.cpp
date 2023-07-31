@@ -583,6 +583,8 @@ string create_file(string f_kind){
     const time_t t_c = chrono::system_clock::to_time_t(now);
     string curr_time =  ctime(&t_c);
 
+	curr_time = curr_time.substr(0, int(curr_time.size())-1); // exclude the last character because it's a '?'
+
 	string fname = f_kind + '_' + curr_time;
 
 	ofstream customfile(fname);
@@ -591,6 +593,47 @@ string create_file(string f_kind){
 	return fname;
 }
 
+void write_to(string hw_fname, vector<int> &fitness){
+	//writes hw fitness values on a single line, 
+	//with the line number indicating the generation
+	//since multiple runs are used, make sure to divide line numbers by the n_runs and plot accordingly
+	
+	ifstream file(hw_fname);
+	if (file.fail()) throw runtime_error("File does not exist\n");
+	if (int(fitness.size()) ==0) throw runtime_error("Fitness vector cannot be empty\n");
+
+	file.close();
+
+	ofstream file(hw_fname);
+
+	for(int i = 0; i<int(fitness.size()); ++i){
+		file << fitness[i];
+		file <<", ";
+	}
+	file<<"\n";
+	file.close();
+}
+
+
+vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &population, vector<vector<int>> &target, int cv, int n_directions){
+
+	// applies the apply_competency function to each individual of the population
+
+	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
+	if(int(target.size()) == 0 ) throw runtime_error("Target matrix cannot be empty\n");
+	if(cv <0) throw runtime_error("Competency must be a positive value\n");
+	if(n_directions != 8) throw runtime_error("In a 2D case, the numeber of neighbors cannot be set to anything other than 8\n");
+
+	// copy genotypes so that you can get phenotypes
+	vector<vector<vector<int>>> pop_phenotype = population; // because you need the genotypes as well as the phenotypes
+
+	for (int i = 0; i<int(pop_phenotype.size()); ++i){
+		apply_competency(pop_phenotype[i], target, cv, n_directions);
+	}	
+
+	return pop_phenotype;
+
+}
 
 
 void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int n_runs, string hw_fname, string comp_fname){
@@ -603,6 +646,7 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 
 	//initialize population
 	vector<vector<vector<int>>> population = create_population(target, n_individuals);
+	vector<vector<vector<int>>> rearranged_pop = population; // initialization for use within the for-loop below
 
 	//initialize competency values
 
@@ -614,12 +658,16 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 		update_fitness(fitness, population, target);
 
 		//write fitness to hardwired fitness file
+		write_to(hw_fname, fitness);
 
 		//apply competency based on competency value
+		rearranged_pop = iterative_competency(population, target, competency_value, n_directions);
 		
 		// update phenotypic fitness
+		update_fitness(fitness, rearranged_pop, target);
 
 		// write phenotypic fitness to phenotypic fitness file
+		write_to(comp_fname, fitness);
 		
 		// selection based on phenotypic fitness
 		
@@ -671,7 +719,6 @@ int main(){
 		srand(seed);
 
 		/* evolve(target, n_iterations, n_individuals, n_runs, hw_file, comp_file); */
-		/* apply_competency(src, target, competency_value, n_directions); */
 
 		
 		return 0;	
