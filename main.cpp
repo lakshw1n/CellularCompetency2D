@@ -714,39 +714,87 @@ void selection(vector<vector<vector<int>>> &population, vector<int> &fitness, do
 
 }
 
+bool is_same(vector<vector<int>> v1, vector<vector<int>> v2){
+	//checks to see if v1 and v2 have the same elements
+	if (int(v1.size()) != int(v2.size())) throw runtime_error("matrices must be of the same size\n");
+
+	int same_counter = 0;
+	int size = int(v1.size());
+
+	for (int i = 0; i<size; ++i){
+		for (int j = 0; j<size; ++j){
+			if (v1[i][j] == v2[i][j]){
+				same_counter ++;
+			}
+		}
+	}
+
+	if (same_counter == size*size) return 1;
+
+	else return 0;
+}
+
 void mutation_swap(vector<vector<vector<int>>> &population, int idx){
-	// swaps two values of a matrix whose position in population is idx
+	// swaps values of a matrix until it becomes different 
 	
 	if(int(population.size())<=0) throw runtime_error("population must have atleast 1 element\n");
 	if(idx <0 || idx >int(population.size())) throw runtime_error("idx must be a value of the population\n");
 
+	int temp; //placeholder
+		
+	int rand_idx_1i = -100, rand_idx_ij = -100; //placeholder inits
+	int rand_idx_2i = -100, rand_idx_2j = -100; //placeholder inits
+		
+	int indv_size = int(population[idx].size()); // matrix size nXn
 
+	vector<vector<int>> old_temp_mat = population[idx]; // chosen matrix to scramble
+	vector<vector<int>> new_temp_mat = population[idx]; // chosen matrix to scramble
+	
+	int temp_val = -1000; //init placeholder (see do-while for usage)
+
+	bool same_flag = 1;
+
+	do{
+		rand_idx_1i = roll_dice(indv_size); //pick random x,y coordinate
+		rand_idx_1j = roll_dice(indv_size);
+
+		rand_idx_2i = roll_dice(indv_size); //pick another random x,y coordinate
+		rand_idx_2j = roll_dice(indv_size);
+
+		temp_val = new_temp_mat[rand_idx_1i][rand_idx_1j]; 
+		new_temp_mat[rand_idx_1i][rand_idx_1j] = new_temp_mat[rand_idx_2i][rand_idx_2j]; 
+		new_temp_mat[rand_idx_2i][rand_idx_2j] = temp_val;	
+
+		bool same_flag = is_same(new_temp_mat, old_temp_mat); 
+	}
+	while(same_flag);
+	
+	//insert new child into the population
+	population.push_back(new_temp_mat);
 }
 
 void mutate(vector<vector<vector<int>>> &population, int n_individuals, double mutation_prob){
 	//mutates a matrix by swapping two of its elements to random positions
 	if(int(population.size()) == n_individuals) throw runtime_error("population size must be reduced prior to mutation\n");
 
-	int pop_count = population.size();
+	int pop_count = int(population.size());
 	int rand_indv = 0; //placeholder
 
-	while(pop_count <=n_individuals){
+	while(pop_count < n_individuals){
 
 		// swap two random locations based on probability
-		if (roll_dice(10)/10.0 <=mutation_prob){
-
+		if (roll_dice(10)/10.0 <= mutation_prob){
+			
+			//pick a random individual
 			rand_indv = roll_dice(int(pop_count));	
+
+			//scramble that individual in a single position
 			mutation_swap(population, rand_indv);
 		}
-
-		pop_count ++;
+		//post mutation, a new child indvidual exists, so re-calculate size
+		pop_count = int(population.size());	
 	}
-
-
 }
-
-
-
 
 void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int n_runs, string hw_fname, string comp_fname, int random_init, int max_competency, double stringency, double mutation_prob){
 
@@ -792,9 +840,7 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 			
 		// mutate population as well as the competency value
 		mutate(population, mutation_prob);
-
 	}
-
 }
 
 
