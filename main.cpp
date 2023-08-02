@@ -305,6 +305,7 @@ index_position get_max(vector<vector<double>> &stress){
 	return temp;
 }
 
+
 index_position get_idxs_from_directions(index_position current_pos, int swap_direction){
 	//src and swap_direction are preconditioned (warning: cannot be called separtely from apply_competency)
 	
@@ -638,7 +639,7 @@ void write_to(string hw_fname, vector<double> &fitness){
 }
 
 
-vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &population, vector<vector<int>> &target, vector<int> cvs, int n_directions){
+vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &population, vector<vector<int>> &target, vector<int> &cvs, int n_directions){
 
 	// applies the apply_competency function to each individual of the population
 
@@ -661,51 +662,64 @@ vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &po
 
 }
 
-void sort_population(vector<vector<vector<int>>> &population, vector<double> &fitness){
+void sort_population(vector<vector<vector<int>>> &population, vector<double> &fitness, vector<int> &competency_values){
 	//sorts a population in descending order (based on phenotypic fitness)
 	
 	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
 	if(int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n");
+	if(int(competency_values.size()) ==0 || int(competency_values.size()) != int(population.size())) throw runtime_error("Competency value-array must be of the same size as that of the population\n");
 
 	// bubble sort in descending order
 	vector<vector<int>> temp; // placeholder for swapping
 
+	int temp_comp = 0;
+
 	for (int i = 0; i<int(fitness.size())-1; ++i){
 		for (int j = i+1; j<int(fitness.size()); ++j){
 			if (fitness[i] < fitness[j]){
+				//swap elements of the population
 				temp = population[i];
 				population[i] = population[j];
 				population[j] = temp;
+
+				//swap elements of the competency-values array
+				temp_comp = competency_values[i];
+				competency_values[i] = competency_values[j];
+				competency_values[j] = temp_comp;	
 			}
 		}
 	}
 
 }
 
-void pick_topk(vector<vector<vector<int>>> &population, double stringency){
+void pick_topk(vector<vector<vector<int>>> &population, vector<int> &competency_values, double stringency){
 	//selects the topk members of a populaiton by deleting the rest
 
 	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
 	if (stringency <=0.0 || stringency >1.0) throw runtime_error("Stringency must be between [0, 1.0]\n");
+	if(int(competency_values.size()) ==0 || int(competency_values.size()) != int(population.size())) throw runtime_error("Competency value-array must be of the same size as that of the population\n");
 
 	int start_pos = int(stringency * int(population.size())); 
 
 	population.erase(population.begin() + start_pos, population.end());
+	competency_values.erase(competency_values.begin() + start_pos, competency_values.end());
 
 }
 
-void selection(vector<vector<vector<int>>> &population, vector<double> &fitness, double stringency){
+void selection(vector<vector<vector<int>>> &population, vector<double> &fitness, vector<int> &competency_values, double stringency){
 	//select the best genotypes based on its phenotypic fitness	
 	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
 	if(int(fitness.size()) ==0 || int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n");
+	if(int(competency_values.size()) ==0 || int(competency_values.size()) != int(population.size())) throw runtime_error("Competency value-array must be of the same size as that of the population\n");
 	if (stringency <=0.0 || stringency >1.0) throw runtime_error("Stringency must be between [0, 1.0]\n");
 
-	//sort population based on phenotypic fitness. 
+	//sort population based on phenotypic fitness. Make sure to sort competency values as well
 		
-	sort_population(population, fitness);
+	sort_population(population, fitness, competency_values);
+
 	
 	//pick the top 10% of the sorted population 
-	pick_topk(population, stringency);		
+	pick_topk(population, competency_values, stringency);		
 
 }
 
@@ -766,9 +780,13 @@ void mutation_swap(vector<vector<vector<int>>> &population, int idx){
 	population.push_back(new_temp_mat);
 }
 
-void mutate(vector<vector<vector<int>>> &population, int n_individuals, double mutation_prob){
+void mutate(vector<vector<vector<int>>> &population, vector<int> &competency_values, int rand_init, int n_individuals, int max_competency, double mutation_prob){
 	//mutates a matrix by swapping two of its elements to random positions
 	if(int(population.size()) == n_individuals) throw runtime_error("population size must be reduced prior to mutation\n");
+	if(int(competency_values.size())!= int(population.size())) throw runtime_error("comeptency value-array must be of the same size as that of the population\n");
+	if (n_individuals <0) throw runtime_error("n_individuals must be positive\n");
+	if (mutation_prob <=0.0 || mutation_prob >1.0) throw runtime_error("Mutation probability must be between [0.0, 1.0]\n");
+	if (max_competency <0) throw runtime_error("Max competency cannot be negative\n");
 
 	int pop_count = int(population.size());
 	int rand_indv = 0; //placeholder
@@ -783,23 +801,70 @@ void mutate(vector<vector<vector<int>>> &population, int n_individuals, double m
 
 			//scramble that individual in a single position
 			mutation_swap(population, rand_indv);
+			
+			//mutate the competency gene
+			if (rand_init == -1){
+				competency_values.push_back(roll_dice(max_competency));
+			}
+			else{
+				competency_values.push_back(rand_init);
+			}
 		}
 		//post mutation, a new child indvidual exists, so re-calculate size
 		pop_count = int(population.size());	
 	}
 }
 
-double max(vector<double> &fitness){
-	double curr_max = -100.0;
+class max_custom{
 
-	for(double x: fitness){
-		if (x>curr_max){
-			curr_max = x;
+	public:
+		double max_val = -100.0;
+		int comp_of_max = 0;
+		vector<int> v1; // v1 = competencies / anything else
+		vector<double> v2; // v2 = fitnesses
+		
+		max_custom(vector<int> inp){
+			v1 = inp;
+			get_max_int();	
 		}
-	}
 
-	return curr_max;
-}
+		max_custom(vector<double> inp){
+			v2 = inp;
+			get_max_double();
+		}
+
+		max_custom(vector<int> inp1, vector<double>inp2){
+			v1 = inp1;
+			v2 = inp2;
+			get_max_comp();
+		}
+
+		void get_max_int(){
+			for (int x: v1){
+				if (x > max_val){
+					max_val = x;
+				}
+			}
+		}
+
+		void get_max_double(){
+			for(double x: v1){
+				if (x > max_val){
+					max_val = x;
+				}
+			}
+		}
+
+		void get_max_comp(){
+			for (int i = 0; i<int(v2.size()); ++i){
+				if (v2[i] > max_val){
+					max_val = v2[i];
+					comp_of_max = v1[i];
+				}
+			}
+		}
+};
+
 
 void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int n_runs, string hw_fname, string comp_fname, int random_init, int max_competency, int n_directions, double stringency, double mutation_prob){
 
@@ -829,6 +894,8 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 	
 	double genotypic_max = 0.0; // for cout stats
 	double phenotypic_max = 0.0;// for cout stats
+	int comp_of_max = 0; // for cout stats
+	
 
 	for (int i = 0; i<n_iterations; ++i){	
 
@@ -836,7 +903,8 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 		update_fitness(fitness, population, target);
 
 		//update max (for reporting only)
-		genotypic_max = max(fitness);
+		max_custom gen_fitness(fitness);
+		genotypic_max = gen_fitness.max_val; 
 
 		//write fitness to hardwired fitness filetime_error(o
 		write_to(hw_fname, fitness);
@@ -848,19 +916,21 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 		update_fitness(fitness, rearranged_pop, target);
 
 		//update max phenotypic(for reporting only)
-		phenotypic_max = max(fitness);
+		max_custom phen_fitness(competency_values, fitness);
+		phenotypic_max = phen_fitness.max_val;
+		comp_of_max = phen_fitness.comp_of_max;
 
 		// write phenotypic fitness to phenotypic fitness file
 		write_to(comp_fname, fitness);
 		
 		// selection based on phenotypic fitness
-		selection(population, fitness, stringency); // genotypes are selected based on phenotypic fitness
+		selection(population, fitness, competency_values, stringency); // genotypes are selected based on phenotypic fitness
 			
 		// mutate population as well as the competency value
-		mutate(population, n_individuals, mutation_prob);
+		mutate(population, competency_values, random_init, n_individuals, max_competency, mutation_prob);
 
 		//report stats
-		cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<"\n";
+		cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<" | "<<"competency: "<<comp_of_max<<"\n";
 	}
 }
 
