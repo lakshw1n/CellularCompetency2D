@@ -446,10 +446,7 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 
 		}	
 
-		else throw runtime_error("the do while loop is not doing its job, check your code\n");
-
-		cout<<"Fitness after: "<<fitness(src, tar)<<"\n";	
-	
+		else throw runtime_error("the do while loop is not doing its job, check your code\n");	
 	}
 
 	return n_swaps;
@@ -545,7 +542,10 @@ void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv
 	calculate_stress(src, tar, positional_stress, stress); // stress will be a matrix: each position will carry a stress value
 	int swaps_executed = swap(src, tar, positional_stress, stress, cv, n_directions);
 
-	/* cout<<"swaps executed: "<<swaps_executed<<" and cv: "<<cv<<"\n"; */
+	if (swaps_executed <= cv-2){
+		cout<<"Warning: swaps executed: "<<swaps_executed<<", is less than competency value: "<<cv<<"\n";
+	}
+
 }
 
 
@@ -589,7 +589,7 @@ vector<int> initialize_competency(int n_individuals, int max_competency ,int val
 	return cvs;
 }
 
-void update_fitness(vector<int> &prev_fitness, vector<vector<vector<int>>> &population, vector<vector<int>> &target){
+void update_fitness(vector<double> &prev_fitness, vector<vector<vector<int>>> &population, vector<vector<int>> &target){
 
 	// takes a set of fitnesses and updates to them to that of the current population
 
@@ -613,11 +613,10 @@ string create_file(string f_kind){
 
 	ofstream customfile(fname);
 	customfile.close();
-
 	return fname;
 }
 
-void write_to(string hw_fname, vector<int> &fitness){
+void write_to(string hw_fname, vector<double> &fitness){
 	//writes hw fitness values on a single line, 
 	//with the line number indicating the generation
 	//since multiple runs are used, make sure to divide line numbers by the n_runs and plot accordingly
@@ -655,18 +654,18 @@ vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &po
 	vector<vector<vector<int>>> pop_phenotype = population; // because you need the genotypes as well as the phenotypes
 
 	for (int i = 0; i<int(pop_phenotype.size()); ++i){
-		apply_competency(pop_phenotype[i], target, cv, n_directions);
+		apply_competency(pop_phenotype[i], target, cvs[i], n_directions);
 	}	
 
 	return pop_phenotype;
 
 }
 
-void sort_population(vector<vector<vector<int>>> &population, vector<int> &fitness){
+void sort_population(vector<vector<vector<int>>> &population, vector<double> &fitness){
 	//sorts a population in descending order (based on phenotypic fitness)
 	
 	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
-	if(int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n")
+	if(int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n");
 
 	// bubble sort in descending order
 	vector<vector<int>> temp; // placeholder for swapping
@@ -691,18 +690,14 @@ void pick_topk(vector<vector<vector<int>>> &population, double stringency){
 
 	int start_pos = int(stringency * int(population.size())); 
 
-	int pos_zero = population.begin();
-
-	int terminal_pos = population.end();
-
-	population.erase(pos_zero + start_pos, terminal_pos);
+	population.erase(population.begin() + start_pos, population.end());
 
 }
 
-void selection(vector<vector<vector<int>>> &population, vector<int> &fitness, double stringency){
+void selection(vector<vector<vector<int>>> &population, vector<double> &fitness, double stringency){
 	//select the best genotypes based on its phenotypic fitness	
 	if(int(population[0].size()) == 0) throw runtime_error("Population cannot be empty\n");
-	if(int(fitness.size()) ==0 || int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n")
+	if(int(fitness.size()) ==0 || int(fitness.size()) != int(population.size())) throw runtime_error("Fitness array must be of the same size as that of the population\n");
 	if (stringency <=0.0 || stringency >1.0) throw runtime_error("Stringency must be between [0, 1.0]\n");
 
 	//sort population based on phenotypic fitness. 
@@ -714,7 +709,7 @@ void selection(vector<vector<vector<int>>> &population, vector<int> &fitness, do
 
 }
 
-bool is_same(vector<vector<int>> v1, vector<vector<int>> v2){
+bool check_similarity(vector<vector<int>> v1, vector<vector<int>> v2){
 	//checks to see if v1 and v2 have the same elements
 	if (int(v1.size()) != int(v2.size())) throw runtime_error("matrices must be of the same size\n");
 
@@ -739,10 +734,8 @@ void mutation_swap(vector<vector<vector<int>>> &population, int idx){
 	
 	if(int(population.size())<=0) throw runtime_error("population must have atleast 1 element\n");
 	if(idx <0 || idx >int(population.size())) throw runtime_error("idx must be a value of the population\n");
-
-	int temp; //placeholder
-		
-	int rand_idx_1i = -100, rand_idx_ij = -100; //placeholder inits
+	
+	int rand_idx_1i = -100, rand_idx_1j = -100; //placeholder inits
 	int rand_idx_2i = -100, rand_idx_2j = -100; //placeholder inits
 		
 	int indv_size = int(population[idx].size()); // matrix size nXn
@@ -765,7 +758,7 @@ void mutation_swap(vector<vector<vector<int>>> &population, int idx){
 		new_temp_mat[rand_idx_1i][rand_idx_1j] = new_temp_mat[rand_idx_2i][rand_idx_2j]; 
 		new_temp_mat[rand_idx_2i][rand_idx_2j] = temp_val;	
 
-		bool same_flag = is_same(new_temp_mat, old_temp_mat); 
+		same_flag = check_similarity(new_temp_mat, old_temp_mat); 
 	}
 	while(same_flag);
 	
@@ -796,7 +789,19 @@ void mutate(vector<vector<vector<int>>> &population, int n_individuals, double m
 	}
 }
 
-void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int n_runs, string hw_fname, string comp_fname, int random_init, int max_competency, double stringency, double mutation_prob){
+double max(vector<double> &fitness){
+	double curr_max = -100.0;
+
+	for(double x: fitness){
+		if (x>curr_max){
+			curr_max = x;
+		}
+	}
+
+	return curr_max;
+}
+
+void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, int n_runs, string hw_fname, string comp_fname, int random_init, int max_competency, int n_directions, double stringency, double mutation_prob){
 
 	// pre-conditioning
 	if(n_iterations<=0) throw runtime_error("Number of iterations must be >=1\n");
@@ -805,6 +810,7 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 	if (int(hw_fname.size()) ==0 || int(comp_fname.size()) == 0) throw runtime_error("hw / comp filenames must be provided\n");
 	if (random_init<-1) throw runtime_error("Random initialization indicator must be -1 or a positive constant\n");
 	if (max_competency <=0) throw runtime_error("Maximum competency must be >=1\n");
+	if(n_directions != 8) throw runtime_error("In a 2D case, the numeber of neighbors cannot be set to anything other than 8\n");
 	if (stringency <=0.0 || stringency >1.0) throw runtime_error("Stringency must be between [0.0, 1.0]\n");
 	if (mutation_prob <=0.0 || mutation_prob >1.0) throw runtime_error("Mutation probability must be between [0.0, 1.0]\n");
 
@@ -814,14 +820,23 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 
 	//initialize competency values
 	
-	vector<int> competency_values = initialize_competency(n_individuals,  int val = -1); // '-1' stands for random initialization, use a contant for constant initialization.
+	vector<int> competency_values = initialize_competency(n_individuals, max_competency, random_init); // '-1' stands for random initialization, use a contant for constant initialization.
 	
 	//initialize fitness vector to zeros
-	vector<int> fitness(n_individuals);
+	vector<double> fitness(n_individuals);
 
-	for (int i = 0; i<n_iterations; ++i){
+	// run a while-loop for n_runs
+	
+	double genotypic_max = 0.0; // for cout stats
+	double phenotypic_max = 0.0;// for cout stats
+
+	for (int i = 0; i<n_iterations; ++i){	
+
 		//calculate initial fitness
 		update_fitness(fitness, population, target);
+
+		//update max (for reporting only)
+		genotypic_max = max(fitness);
 
 		//write fitness to hardwired fitness filetime_error(o
 		write_to(hw_fname, fitness);
@@ -832,14 +847,20 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 		// update phenotypic fitness
 		update_fitness(fitness, rearranged_pop, target);
 
+		//update max phenotypic(for reporting only)
+		phenotypic_max = max(fitness);
+
 		// write phenotypic fitness to phenotypic fitness file
 		write_to(comp_fname, fitness);
 		
 		// selection based on phenotypic fitness
-		selection(population, fitness, stringency) // genotypes are selected based on phenotypic fitness
+		selection(population, fitness, stringency); // genotypes are selected based on phenotypic fitness
 			
 		// mutate population as well as the competency value
-		mutate(population, mutation_prob);
+		mutate(population, n_individuals, mutation_prob);
+
+		//report stats
+		cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<"\n";
 	}
 }
 
@@ -850,11 +871,10 @@ int main(){
 
 	int seed = 9;
 	int n_directions = 8;
-	int competency_value = 100;
 	int n_individuals = 1000;
 	int n_iterations = 1000;
 	int n_runs = 4;
-	int random_init = -1; // for comepetency initialization 
+	int random_init = -1; // for comepetency initialization, set a +ve constant to initialize everything with the same val
 	int max_competency = 1000;
 	double mutation_prob = 0.1;
 	double stringency = 0.1;
@@ -868,19 +888,16 @@ int main(){
 		// warning: make sure that the same elements exist in target and source. Best thing would be to scramble the target matrix in different ways
 		
 		//set elements of the target, the structure of which determines structure of the source. Note n_kinds = 2 for now.
-		target.push_back(vector<int> {1, 0, 0, 0, 0, 0, 0, 0, 0, 0});
-		target.push_back(vector<int> {0, 1, 0, 0, 0, 0, 0, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 1, 0, 0, 0, 0, 0, 0, 0});
-
-		target.push_back(vector<int> {0, 0, 0, 1, 0, 0, 0, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 0, 1, 0, 0, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 0, 0, 1, 0, 0, 0, 0});
-
-		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 1, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 1, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 0, 1, 0});
-
-		target.push_back(vector<int> {0, 0, 0, 0, 0, 0, 0, 0, 0, 1});
+		target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1});
+		target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1});
+		target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0});
+		target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0});
+		target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0});
+		target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0});
+		target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1});
+		target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1});
 
 		string hw_file = create_file(log_dir+"hardwired_fitness");
 		string comp_file = create_file(log_dir+"competent_fitness");
@@ -889,7 +906,7 @@ int main(){
 
 		srand(seed);
 
-		evolve(target, n_iterations, n_individuals, n_runs, hw_file, comp_file, random_init, max_competency, stringency, mutation_prob);
+		evolve(target, n_iterations, n_individuals, n_runs, hw_file, comp_file, random_init, max_competency, n_directions, stringency, mutation_prob);
 
 		
 		return 0;	
