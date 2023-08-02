@@ -848,7 +848,7 @@ class max_custom{
 		}
 
 		void get_max_double(){
-			for(double x: v1){
+			for(double x: v2){
 				if (x > max_val){
 					max_val = x;
 				}
