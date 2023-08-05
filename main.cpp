@@ -15,6 +15,8 @@ void print_positional_stress(int size, int n_directions, vector<vector<vector<do
 
 void print_totalStress(vector<vector<double>> &stress);
 
+bool check_similarity(vector<vector<int>>, vector<vector<int>>);
+
 class doubleVector{
 	public:
 		int size;
@@ -64,15 +66,14 @@ int roll_dice(int n_kinds){
 	return val;
 }
 
-vector<vector<int>> get_individual(vector<vector<int>> &target){
+vector<vector<int>> get_individual(vector<vector<int>> src){
 
 	//creates a random 2d individual by scrambling the target matrix
 	//pick two locations in the matrix to interchange, repeat for a number of times based on the size of the matrix
+	//src = create a copy of target for scambling	
 
-	if (target.size() <=0) throw runtime_error("Empty target matrix\n");
+	if (src.size() <=0) throw runtime_error("Empty target matrix\n");
 	vector<vector<int>> v1;
-
-	vector<vector<int>> src = target; // create a copy of target for scambling	
 	
 	int count = 0;
 	int idx1_i = -1, idx1_j = -1;
@@ -125,12 +126,17 @@ double fitness(vector<vector<int>> &source, vector<vector<int>> &target){
 
 	if (source.size() != target.size()) throw runtime_error("source and target matrices must be of the same size\n");
 
-	double error = 0.0;
+	double zero_error = 0.0;
+	double one_error = 0.0;
 
 
 	// temp placeholders (initialized only once, hence outside the for loop)
 	vector<int> src_temp;
 	vector<int> tar_temp;
+
+	int zero_counts = 0;
+	int one_counts = 0;
+
 
 
 	for (int i = 0; i<int(source.size()); ++i){
@@ -138,11 +144,23 @@ double fitness(vector<vector<int>> &source, vector<vector<int>> &target){
 		tar_temp = target[i];
 
 		for (int j = 0; j<int(source.size()); ++j){
-			error += pow((src_temp[j] - tar_temp[j]), 2); 
+			if (tar_temp[j] == 0){
+				zero_counts ++;
+				zero_error += pow((src_temp[j] - tar_temp[j]), 2); 
+			}
+
+			else if (tar_temp[j] == 1){
+				one_counts ++;
+				one_error += pow((src_temp[j] - tar_temp[j]), 2); 
+			}
+
+			else{
+				throw runtime_error("Only binary image targets are allowed\n");
+			}
 		}
 	}
 
-	return 1 - (error/double(pow(source.size(), 2)));
+	return 1 - ((zero_error/zero_counts) + (one_error/one_counts));
 
 }
 
@@ -282,6 +300,24 @@ void calculate_stress(vector<vector<int>> &src, vector<vector<int>> &tar, vector
 }
 
 
+index_position get_random_pos(vector<vector<double>> &stress){
+	// stress is pre-conditioned in apply_competency
+	int pos_i = 0, pos_j = 0;
+
+	double pos_val = -1000.0;
+
+	pos_i = roll_dice(int(stress.size()));
+	pos_j = roll_dice(int(stress.size()));
+	pos_val = stress[pos_i][pos_j]; 
+	
+	index_position temp;
+	temp.i = pos_i;
+	temp.j = pos_j;
+	temp.max = pos_val;
+
+	return temp;
+}
+
 index_position get_max(vector<vector<double>> &stress){
 	// stress is pre-conditioned in apply_competency
 	int max_i = 0, max_j = 0;
@@ -362,8 +398,10 @@ index_position get_idxs_from_directions(index_position current_pos, int swap_dir
 	return temp;
 }
 
-vector<vector<int>> matrix_element_swap(vector<vector<int>> temp_src, index_position curr_pos ,int swap_pos){ // pass by reference is intentionally disabled 
+vector<vector<int>> matrix_element_swap(vector<vector<int>> &src, index_position curr_pos ,int swap_pos){ // pass by reference is intentionally disabled 
 	if (swap_pos <0) throw runtime_error("swap direction must be positive\n");
+
+	vector<vector<int>> temp_src = src;
 
 	index_position new_pos = get_idxs_from_directions(curr_pos, swap_pos);
 
@@ -396,12 +434,12 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 	int n_swaps = 0;
 	int idx_i = -100, idx_j = -100;
 
-	index_position curr_pos = get_max(stress);
+	/* index_position curr_pos = get_max(stress); */
+	index_position curr_pos = get_random_pos(stress);
 
 	vector<vector<vector<double>>> temp_ps = positional_stress;
 	vector<vector<double>> temp_stress = stress;
 	vector<vector<int>> temp_src = src;
-
 	
 	while ((n_swaps <cv) && (curr_pos.max != 0.0)){
 		// if there are no swaps left then make sure the competency value is not mutated anymore, perhaps include a flag
@@ -417,6 +455,7 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 
 		//pick a random neighbor of the cell from its positional stress matrix
 		int selected_pos = -100;
+		/* print_positional_stress(int(src.size()),8, temp_ps); */
 
 		do{
 
@@ -428,7 +467,9 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 			// make sure you swap only if stress at that position decreases
 			//
 			// first carry out a temporatry swap
+			//
 			temp_src = matrix_element_swap(src, curr_pos, selected_pos); 
+
 			// recalculate stress 
 			calculate_stress (temp_src, tar, temp_ps, temp_stress);
 			new_stress = temp_stress[idx_i][idx_j];
@@ -443,8 +484,8 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 			stress = temp_stress;
 			n_swaps += 1;
 			current_stress = new_stress;
-			curr_pos = get_max(stress); //update our knowledge of max stress
-
+			/* curr_pos = get_max(stress); //update our knowledge of max stress */
+			curr_pos = get_random_pos(stress);
 		}	
 
 		else throw runtime_error("the do while loop is not doing its job, check your code\n");	
@@ -541,7 +582,13 @@ void apply_competency(vector<vector<int>> &src, vector<vector<int>> &tar, int cv
 	/* print_totalStress(stress); */ 
 	
 	calculate_stress(src, tar, positional_stress, stress); // stress will be a matrix: each position will carry a stress value
-	int swaps_executed = swap(src, tar, positional_stress, stress, cv, n_directions);
+	
+	int swaps_executed = 0; //placeholder
+
+	do{
+		swaps_executed += swap(src, tar, positional_stress, stress, cv, n_directions);
+	}
+	while(swaps_executed <cv);
 
 	if (swaps_executed <= cv-2){
 		cout<<"Warning: swaps executed: "<<swaps_executed<<", is less than competency value: "<<cv<<"\n";
@@ -617,24 +664,21 @@ string create_file(string f_kind){
 	return fname;
 }
 
-void write_to(string hw_fname, vector<double> &fitness){
+void write_to(string hw_fname, double val){
 	//writes hw fitness values on a single line, 
 	//with the line number indicating the generation
 	//since multiple runs are used, make sure to divide line numbers by the n_runs and plot accordingly
 	
 	ifstream file_one(hw_fname);
 	if (file_one.fail()) throw runtime_error("File does not exist\n");
-	if (int(fitness.size()) ==0) throw runtime_error("Fitness vector cannot be empty\n");
 
 	file_one.close();
 
-	ofstream file_two(hw_fname);
+	ofstream file_two(hw_fname, ios_base::app);
 
-	for(int i = 0; i<int(fitness.size()); ++i){
-		file_two << fitness[i];
-		file_two <<", ";
-	}
-	file_two<<"\n";
+	file_two<<val;
+	file_two<<", ";
+
 	file_two.close();
 }
 
@@ -822,6 +866,7 @@ class max_custom{
 		int comp_of_max = 0;
 		vector<int> v1; // v1 = competencies / anything else
 		vector<double> v2; // v2 = fitnesses
+		int max_ind_number = -100;
 		
 		max_custom(vector<int> inp){
 			v1 = inp;
@@ -840,17 +885,18 @@ class max_custom{
 		}
 
 		void get_max_int(){
-			for (int x: v1){
-				if (x > max_val){
-					max_val = x;
+			for (int i = 0; i<v1.size(); ++i){
+				if (v1[i] > max_val){
+					max_val = v1[i];
 				}
 			}
 		}
 
 		void get_max_double(){
-			for(double x: v2){
-				if (x > max_val){
-					max_val = x;
+			for(int i = 0; i<v2.size();++i){
+				if (v2[i]>max_val){
+					max_val = v2[i];
+					max_ind_number = i;
 				}
 			}
 		}
@@ -860,6 +906,7 @@ class max_custom{
 				if (v2[i] > max_val){
 					max_val = v2[i];
 					comp_of_max = v1[i];
+					max_ind_number = i;
 				}
 			}
 		}
@@ -879,59 +926,135 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 	if (stringency <=0.0 || stringency >1.0) throw runtime_error("Stringency must be between [0.0, 1.0]\n");
 	if (mutation_prob <=0.0 || mutation_prob >1.0) throw runtime_error("Mutation probability must be between [0.0, 1.0]\n");
 
-	//initialize population
-	vector<vector<vector<int>>> population = create_population(target, n_individuals);
-	vector<vector<vector<int>>> rearranged_pop = population; // initialization for use within the for-loop below
-
-	//initialize competency values
+	//in each run
 	
-	vector<int> competency_values = initialize_competency(n_individuals, max_competency, random_init); // '-1' stands for random initialization, use a contant for constant initialization.
-	
-	//initialize fitness vector to zeros
-	vector<double> fitness(n_individuals);
+	for (int r = 0; r<n_runs; ++r){
 
-	// run a while-loop for n_runs
-	
-	double genotypic_max = 0.0; // for cout stats
-	double phenotypic_max = 0.0;// for cout stats
-	int comp_of_max = 0; // for cout stats
-	
+		//initialize population
+		vector<vector<vector<int>>> population = create_population(target, n_individuals);
+		vector<vector<vector<int>>> rearranged_pop = population; // initialization for use within the for-loop below
 
-	for (int i = 0; i<n_iterations; ++i){	
-
-		//calculate initial fitness
-		update_fitness(fitness, population, target);
-
-		//update max (for reporting only)
-		max_custom gen_fitness(fitness);
-		genotypic_max = gen_fitness.max_val; 
-
-		//write fitness to hardwired fitness filetime_error(o
-		write_to(hw_fname, fitness);
-
-		//apply competency based on competency value
-		rearranged_pop = iterative_competency(population, target, competency_values, n_directions);
+		//initialize competency values
 		
-		// update phenotypic fitness
-		update_fitness(fitness, rearranged_pop, target);
-
-		//update max phenotypic(for reporting only)
-		max_custom phen_fitness(competency_values, fitness);
-		phenotypic_max = phen_fitness.max_val;
-		comp_of_max = phen_fitness.comp_of_max;
-
-		// write phenotypic fitness to phenotypic fitness file
-		write_to(comp_fname, fitness);
+		vector<int> competency_values = initialize_competency(n_individuals, max_competency, random_init); // random_init = -1 stands for random initialization, use a contant for constant initialization.
 		
-		// selection based on phenotypic fitness
-		selection(population, fitness, competency_values, stringency); // genotypes are selected based on phenotypic fitness
+		//initialize fitness vector to zeros
+		vector<double> fitness(n_individuals);
+
+		// run a while-loop for n_runs
+		
+		double genotypic_max = 0.0; // for cout stats
+		double phenotypic_max = 0.0;// for cout stats
+		int comp_of_max = 0; // for cout stats	
+
+		cout<<"Run: "<<r<<"\n";
+
+		for (int i = 0; i<n_iterations; ++i){	
+
+			//calculate initial fitness
+			update_fitness(fitness, population, target);
+
+			//update max (for reporting only)
+			max_custom gen_fitness(fitness);
+			genotypic_max = gen_fitness.max_val; 
+
+			//write fitness to hardwired fitness filetime_error(o
+			write_to(hw_fname, genotypic_max);
+
+			//apply competency based on competency value
+			rearranged_pop = iterative_competency(population, target, competency_values, n_directions);
+		
+			// update phenotypic fitness
+			update_fitness(fitness, rearranged_pop, target);
+
+			//update max phenotypic(for reporting only)
+			max_custom phen_fitness(competency_values, fitness);
+			phenotypic_max = phen_fitness.max_val;
+			comp_of_max = phen_fitness.comp_of_max;
+
+			// write phenotypic fitness to phenotypic fitness file
+			write_to(comp_fname, phenotypic_max);
 			
-		// mutate population as well as the competency value
-		mutate(population, competency_values, random_init, n_individuals, max_competency, mutation_prob);
+			// selection based on phenotypic fitness
+			selection(population, fitness, competency_values, stringency); // genotypes are selected based on phenotypic fitness
+				
+			// mutate population as well as the competency value
+			mutate(population, competency_values, random_init, n_individuals, max_competency, mutation_prob);
 
-		//report stats
-		cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<" | "<<"competency: "<<comp_of_max<<"\n";
+			//report stats
+			cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<" | "<<"competency: "<<comp_of_max<<"\n";
+		}	
+
+		cout<<"==============\n";
+
+		//start logs from new line
+
+		ofstream hw_file;
+		hw_file.open(hw_fname, ios_base::app);
+		hw_file<<"\n";
+		hw_file.close();
+
+		ofstream comp_file;
+
+		comp_file.open(comp_fname, ios_base::app);
+		comp_file<<"\n";
+		comp_file.close();
+
 	}
+}
+
+int bin_stoi(char x){
+	if (x == '1'){
+		return 1;
+	}
+	else if (x == '0'){
+		return 0;
+	}
+
+	else{
+		throw runtime_error("image must be binary\n");
+	}
+
+}
+
+vector<vector<int>> get_target_from_txt(string path, string fname, int size){
+	string loc = " ";
+
+	if(path[path.size()-1] != '/'){
+		loc = path + "/"+fname;
+	}
+	else{
+	 	loc = path+fname;
+	}
+
+	ifstream bin_file(loc);
+	string line_text; //placeholder
+	
+	//create a blank(filled with zeros) placeholder vector to fill
+	vector<int> cols(size);
+
+	vector<vector<int>> img;
+	for(int i = 0; i<size; ++i){
+		for (int j =0; j<size; ++j){
+			cols[i] = 0;
+		}
+		img.push_back(cols);
+	}
+
+	int row = 0;
+
+	if (bin_file.fail()) throw runtime_error("File does not exist\n");
+
+	while (getline(bin_file, line_text)){
+		for (int i = 0; i<int(line_text.size()); ++i){
+			img[row][i] = bin_stoi(line_text[i]);
+		}
+		row ++;
+	}
+
+	bin_file.close();
+
+	return img;
 }
 
 
@@ -939,35 +1062,47 @@ int main(){
 
 	//assumption: 2d matrices are square
 
-	int seed = 9;
+	int seed = 10032;
 	int n_directions = 8;
-	int n_individuals = 1000;
+	int n_individuals = 300;
 	int n_iterations = 1000;
-	int n_runs = 4;
+	int n_runs = 10;
 	int random_init = -1; // for comepetency initialization, set a +ve constant to initialize everything with the same val
-	int max_competency = 1000;
+	int max_competency = 200;
 	double mutation_prob = 0.1;
 	double stringency = 0.1;
 	string log_dir = "./logs/"; 
+	string target_location = "./inputs/";
+	int inp_size = 30; //careful, you need to manually set this
 
+	cout.precision(12);
 
 	try {
 
 		vector<vector<int>> target; // lets first get a matrix which we can index easily, then populate it with whatever elements we need
-
+		
 		// warning: make sure that the same elements exist in target and source. Best thing would be to scramble the target matrix in different ways
 		
 		//set elements of the target, the structure of which determines structure of the source. Note n_kinds = 2 for now.
-		target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1});
-		target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1});
-		target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0});
-		target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0});
-		target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0});
-		target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0});
-		target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1});
-		target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1});
+		
+		//convert image to greyscale, threshold it to make it binary
+		//use the binary image as target
+		//for now: do this manually
+		target = get_target_from_txt(target_location, "mnist_5.txt", inp_size);
+
+		print_individual(target);
+	
+		/* target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1}); */
+		/* target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1}); */
+		/* target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0}); */
+		/* target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0}); */
+		/* target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0}); */
+		/* target.push_back(vector<int> {0, 0, 0, 1, 1, 1, 1, 0, 0, 0}); */
+		/* target.push_back(vector<int> {0, 0, 1, 1, 1, 1, 1, 1, 0, 0}); */
+		/* target.push_back(vector<int> {0, 1, 1, 1, 0, 0, 1, 1, 1, 0}); */
+		/* target.push_back(vector<int> {1, 1, 1, 0, 0, 0, 0, 1, 1, 1}); */
+		/* target.push_back(vector<int> {1, 1, 0, 0, 0, 0, 0, 0, 1, 1}); */
+
 
 		string hw_file = create_file(log_dir+"hardwired_fitness");
 		string comp_file = create_file(log_dir+"competent_fitness");
