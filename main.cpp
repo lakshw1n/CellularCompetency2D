@@ -83,7 +83,7 @@ vector<vector<int>> get_individual(vector<vector<int>> src){
 
 	int temp = -100;
 
-	while (count<= size*size){	
+	while (count<= 5*size*size){ //as many as 5 times the size of the matrix	
 		idx1_i = roll_dice(size-1); // get an index from [0, array_size)
 		idx1_j = roll_dice(size-1);	
 
@@ -420,13 +420,14 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 	// stress matrix does not require pre-conditioning
 	
 	// repeat:
-	// 	pick the index_position with the highest stress
+	// 	pick a random index position
 	//  get the positional stress values of the specific index
 	//  pick a random neighbor to swap with (make sure the neighbor exists, i.e, skip -1's)
 	//  check if the stress of the position improves, if yes, keep, else pick another neighbor to swap with
 	//  increment swap counter
 	//  recheck for the most stressed position, and repeat.
-	//  repeat until swap counter exceeds competency_value: cv, or if stress levels are 0 in all positions 
+	//  swap until fitness increases
+	//  
 	//
 	//  There seems to be no point to stress sharing, because sharing stress does not change the tendency of each cell-position to swap until its stress is low.
 	//  Also, Swaps cannot be with the max stress inducing neighbor, it has to be random so that cyclic behviour does not result (swapping between two positions)
@@ -440,8 +441,11 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 	vector<vector<vector<double>>> temp_ps = positional_stress;
 	vector<vector<double>> temp_stress = stress;
 	vector<vector<int>> temp_src = src;
+
+	double current_fitness = fitness(temp_src, tar); 
+	double new_fitness = 0; // initially they are the same
 	
-	while ((n_swaps <cv) && (curr_pos.max != 0.0)){
+	while ((n_swaps <cv) && (current_fitness <0.99)){
 		// if there are no swaps left then make sure the competency value is not mutated anymore, perhaps include a flag
 		//
 		
@@ -456,6 +460,9 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 		//pick a random neighbor of the cell from its positional stress matrix
 		int selected_pos = -100;
 		/* print_positional_stress(int(src.size()),8, temp_ps); */
+
+		int stuck_count = 0; //monitor if a single element swap results in the same fitness
+		bool reset_flag = 0;
 
 		do{
 
@@ -473,22 +480,44 @@ int swap(vector<vector<int>> &src, vector<vector<int>> &tar, vector<vector<vecto
 			// recalculate stress 
 			calculate_stress (temp_src, tar, temp_ps, temp_stress);
 			new_stress = temp_stress[idx_i][idx_j];
+			
+			//recalcualte fitness
+			new_fitness = fitness(temp_src, tar);	
+
+			if ((new_fitness == current_fitness) || (new_stress == current_stress)){
+				stuck_count ++;
+			}
+
+			if (stuck_count >=20){
+				reset_flag = 1;	
+				break;
+			}
 		}
-		// repeat if new_stress > current_stress
-		while (new_stress > current_stress);
+		// repeat if new_stress > current_stress and fitness improves
+		while ((new_stress >= current_stress) || (new_fitness <= current_fitness));
+
+		/* cout<<"n_swaps: "<<n_swaps<<"/"<<cv<<"\n"; */
+		/* cout<<"curr_fitness"<<current_fitness<<"\n"; */
 
 		// check once again if new stress is lower than current stress and update relevant matrixes
-		if (new_stress <= current_stress){
+		if ((new_stress < current_stress) && (new_fitness > current_fitness)){
 			src = temp_src;
 			positional_stress = temp_ps;
 			stress = temp_stress;
 			n_swaps += 1;
 			current_stress = new_stress;
+			current_fitness = new_fitness;
 			/* curr_pos = get_max(stress); //update our knowledge of max stress */
 			curr_pos = get_random_pos(stress);
 		}	
 
-		else throw runtime_error("the do while loop is not doing its job, check your code\n");	
+		else if (reset_flag == 1){
+			curr_pos = get_random_pos(stress);
+		} 
+
+		else{
+			throw runtime_error("the do while loop is not doing its job, check your code\n");	
+		}
 	}
 
 	return n_swaps;
@@ -983,6 +1012,8 @@ void evolve(vector<vector<int>> &target, int n_iterations, int n_individuals, in
 
 			//report stats
 			cout<<"it: "<<i<<" | "<<"gen (max): "<<genotypic_max<<" | "<<"phe (max): "<<phenotypic_max<<" | "<<"competency: "<<comp_of_max<<"\n";
+
+			if (genotypic_max == 1.0) break;
 		}	
 
 		cout<<"==============\n";
@@ -1066,10 +1097,10 @@ int main(){
 	int n_directions = 8;
 	int n_individuals = 300;
 	int n_iterations = 1000;
-	int n_runs = 10;
+	int n_runs = 1;
 	int random_init = -1; // for comepetency initialization, set a +ve constant to initialize everything with the same val
-	int max_competency = 200;
-	double mutation_prob = 0.1;
+	int max_competency = 50;
+	double mutation_prob = 0.2;
 	double stringency = 0.1;
 	string log_dir = "./logs/"; 
 	string target_location = "./inputs/";
