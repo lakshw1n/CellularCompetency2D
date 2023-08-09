@@ -728,6 +728,7 @@ vector<vector<vector<int>>> iterative_competency(vector<vector<vector<int>>> &po
 	vector<vector<vector<int>>> pop_phenotype = population; // because you need the genotypes as well as the phenotypes
 
 	for (int i = 0; i<int(pop_phenotype.size()); ++i){
+		cout<<"Indv: "<<i<<"/"<<pop_phenotype.size()<<"\n";
 		apply_competency(pop_phenotype[i], target, cvs[i], n_directions);
 	}	
 
@@ -1095,16 +1096,16 @@ int main(){
 
 	int seed = 10032;
 	int n_directions = 8;
-	int n_individuals = 300;
+	int n_individuals = 100;
 	int n_iterations = 1000;
 	int n_runs = 1;
 	int random_init = -1; // for comepetency initialization, set a +ve constant to initialize everything with the same val
-	int max_competency = 50;
+	int max_competency = 10;
 	double mutation_prob = 0.2;
 	double stringency = 0.1;
 	string log_dir = "./logs/"; 
 	string target_location = "./inputs/";
-	int inp_size = 30; //careful, you need to manually set this
+	int inp_size = 30; //carefull, you need to manually set this
 
 	cout.precision(12);
 
