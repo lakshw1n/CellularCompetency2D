@@ -5,7 +5,9 @@
 #Evolution of 2D stress based competency
 
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
+import helperfunction as hf
 
 # Methodology:
 # Given a scrambled matrix, get the stress of each of its cells.
@@ -50,17 +52,33 @@ import matplotlib.pyplot as plt
 
 def main():
     # target = get_target_from_file()
-    target = np.array([[1, 0, 0],
-                      [0, 1, 0],
-                      [0, 0, 1]])
+    stringency = 0.1
+    N_indv = 100 #n of indviduals
+    n_gen = 50
+    comp_value = 100
+    pf_Flag = True
+    mut_rate = 0.1
+    N_mutations = 2 #this is sketchy, change this based on 2d grid shape
+
+    gen_fname = "/Users/niwhskal/competency2d/output/gen_matrix.npy"
+    phen_fname = "/Users/niwhskal/competency2d/output/phen_matrix.npy"
+    comp_fname = "/Users/niwhskal/competency2d/output/comp_vals.npy"
 
     rng = np.random.default_rng(12345)
-    src_pop = get_init_pop(target, n, rng)
-    evolve(src_pop, tar, n_gen, rng)
 
+    # # target = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+    #                   [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                   [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    #                   [0, 0, 0, 1, 0, 0,0, 0, 0, 0],
+    #                    [0, 0, 0, 0, 1, 0,0, 0, 0, 0],
+    #                    [0, 0, 0, 0, 0, 1,0, 0, 0, 0],
+    #                     [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
+    target = hf.load_from_txt("/Users/niwhskal/Downloads/MNIST_6_0.png")
+    print(target.shape)
 
-
-
+    src_pop = hf.get_init_pop(target, N_indv, rng)
+    hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv)
+    hf.plot(gen_fname, phen_fname, comp_fname, pf_Flag)
 
 if (__name__ == "__main__"):
     main()
