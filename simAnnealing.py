@@ -4,10 +4,13 @@
 #date: 9th Sept 2023
 #Evolution of 2D stress based competency
 
+import os
+import time
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import helperfunction as hf
+import multiprocessing
 
 # Methodology:
 # Given a scrambled matrix, get the stress of each of its cells.
@@ -53,16 +56,37 @@ import helperfunction as hf
 def main():
     # target = get_target_from_file()
     stringency = 0.1
+    N_runs = 10
     N_indv = 100 #n of indviduals
-    n_gen = 50
-    comp_value = 100
+    n_gen = 2000
+    comp_value = 5000
     pf_Flag = True
-    mut_rate = 0.1
-    N_mutations = 2 #this is sketchy, change this based on 2d grid shape
+    mut_rate = 0.3
+    tar_shape = 20
+    N_mutations = 2 #round(tar_shape*0.1) #this is sketchy, change this based on 2d grid shape
+    plot_dist = True
 
-    gen_fname = "/Users/niwhskal/competency2d/output/gen_matrix.npy"
-    phen_fname = "/Users/niwhskal/competency2d/output/phen_matrix.npy"
-    comp_fname = "/Users/niwhskal/competency2d/output/comp_vals.npy"
+    switch_at = round(n_gen/2)
+
+    print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \n n_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n")
+
+    if (switch_at ==0):
+        gen_fname = f"/Users/niwhskal/competency2d/output/gen_matrix{pf_Flag}.npy"
+        phen_fname = f"/Users/niwhskal/competency2d/output/phen_matrix{pf_Flag}.npy"
+        comp_fname = f"/Users/niwhskal/competency2d/output/comp_vals{pf_Flag}.npy"
+        dist_fname = f"/Users/niwhskal/competency2d/output/tot_dist{pf_Flag}.npy"
+
+        gen_state_fname = f"/Users/niwhskal/competency2d/output/gen_states{pf_Flag}.npy"
+        phen_state_fname = f"/Users/niwhskal/competency2d/output/phen_states{pf_Flag}.npy"
+
+    else:
+        gen_fname = "/Users/niwhskal/competency2d/output/gen_matrix_ax.npy"
+        phen_fname = "/Users/niwhskal/competency2d/output/phen_matrix_ax.npy"
+        comp_fname = "/Users/niwhskal/competency2d/output/comp_vals_ax.npy"
+        dist_fname = "/Users/niwhskal/competency2d/output/tot_dist_ax.npy"
+
+        gen_state_fname = "/Users/niwhskal/competency2d/output/gen_states_ax.npy"
+        phen_state_fname = "/Users/niwhskal/competency2d/output/phen_states_ax.npy"
 
     rng = np.random.default_rng(12345)
 
@@ -73,12 +97,80 @@ def main():
     #                    [0, 0, 0, 0, 1, 0,0, 0, 0, 0],
     #                    [0, 0, 0, 0, 0, 1,0, 0, 0, 0],
     #                     [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
-    target = hf.load_from_txt("/Users/niwhskal/Downloads/MNIST_6_0.png")
+    target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", tar_shape)
     print(target.shape)
 
-    src_pop = hf.get_init_pop(target, N_indv, rng)
-    hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv)
-    hf.plot(gen_fname, phen_fname, comp_fname, pf_Flag)
+    g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
+    phen_fitnesses = np.zeros((N_runs, n_gen, N_indv))
+    allCompVals = np.zeros((N_runs, n_gen, N_indv))
+    allDistVals = np.zeros((N_runs, n_gen, N_indv))
+
+    allGStates = {}
+    allPStates = {}
+
+
+    tarArgs = [target]*N_runs
+    idvArgs = [N_indv]*N_runs
+    rngArgs = [rng]*N_runs
+
+    srcArgs = [*zip(tarArgs, idvArgs, rngArgs)]
+
+
+    loop_start = time.time()
+    src_popAll = []
+    for i in range(N_runs):
+        src_popAll.append(hf.get_init_pop(target, N_indv, rng))
+
+    loop_end = time.time()
+    print(f"Time (loop): {loop_end - loop_start} s")
+
+    g = []
+    p = []
+    cv = []
+    dis = []
+    g_log = []
+    p_log = []
+
+    evolveArgs = [*zip(src_popAll, tarArgs, [n_gen]*N_runs, [comp_value]*N_runs, rngArgs, [pf_Flag]*N_runs, [mut_rate]*N_runs, [N_mutations]*N_runs, idvArgs, [*range(N_runs)], [switch_at]*N_runs)]
+
+    pool_start = time.time()
+    pool = multiprocessing.Pool(os.cpu_count() -1)
+    g, p, cv, dis, g_log, p_log = [*zip(*pool.starmap(hf.evolve, iterable=evolveArgs))]
+    pool_end = time.time()
+    print(f"Time (pool): {pool_end - pool_start} s")
+
+    g = np.array(g)
+    p = np.array(p)
+    cv = np.array(cv)
+    dis = np.array(dis)
+    g_log = np.array(g_log)
+    p_log = np.array(p_log)
+
+    # loop_start= time.time()
+    # for curr_run in range(N_runs):
+    #     src_pop = hf.get_init_pop(target, N_indv, rng)
+    #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at)
+
+    #     g_fitnesses[curr_run] = g
+    #     phen_fitnesses[curr_run] = p
+    #     allCompVals[curr_run] = cv
+    #     allDistVals[curr_run] = dis
+
+    #     allGStates[curr_run] = g_log
+    #     allPStates[curr_run] = p_log
+
+    # loop_end = time.time()
+    # print(f"loop time: {loop_end-loop_start} s")
+
+    np.save(gen_fname, g)
+    np.save(phen_fname, p)
+    np.save(comp_fname, cv)
+    np.save(dist_fname, dis)
+
+    np.save(gen_state_fname, g_log[0])
+    np.save(phen_state_fname, p_log[0])
+
+    hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist)
 
 if (__name__ == "__main__"):
     main()
