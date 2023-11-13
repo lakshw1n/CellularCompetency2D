@@ -8,6 +8,7 @@ import multiprocessing
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib
 from matplotlib import animation
 import time
 
@@ -277,7 +278,24 @@ def delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 1):
     if len(stressed_dict)==0:
         return 0
 
-    if (hard_delete==1):
+    #if plasticity flag is false then hard_delete = 0, then, go to the from_pos key and delete its to pos value and return
+
+    # a way to delete a single key from stressed_dict
+    if (hard_delete == 2):
+        try:
+            del stressed_dict[tuple(from_pos)]
+        except KeyError:
+            pass
+        return 0
+
+    elif (hard_delete == 0):
+        try:
+            del stressed_dict[tuple(from_pos)][tuple(to_pos)]
+        except KeyError:
+            pass
+        return 0
+
+    elif (hard_delete == 1):
         try:
             del stressed_dict[tuple(from_pos)]
             del stressed_dict[tuple(to_pos)]
@@ -287,6 +305,7 @@ def delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 1):
     if len(stressed_dict) ==0:
         return 0
 
+    # delete postition entries of already swapped cells from all dict values.
     for k, v in stressed_dict.items():
         try:
             del v[tuple(from_pos)]
@@ -294,20 +313,23 @@ def delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 1):
         except KeyError:
             continue
 
+    return 0
+
 def swap(indv, from_pos, to_pos):
     temp = indv[tuple(from_pos)]
     indv[tuple(from_pos)] = indv[tuple(to_pos)]
     indv[tuple(to_pos)] = temp
 
-def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng):
+def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count):
     #for each stressed cell find the maximum to_be_idx signal value
     #move once for each position
 
     distance = lambda f,t: np.sqrt((f[0]-t[0])**2 + (f[1] - t[1])**2)
-    moves = 0
+    moves = current_move_count #so that we can break as soon as mvs hits comp_value
     tot_distance = 0.0
+    break_flag = False
 
-    while(len(stressed_dict)!=0 and moves < comp_value):
+    while(len(stressed_dict) and moves < comp_value):
         #pick a random stressed position
         kys = list(stressed_dict.keys())
         from_pos = rng.choice(kys)
@@ -315,13 +337,18 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng):
         v = stressed_dict[tuple(from_pos)]
 
         if (len(list(v.values()))) == 0:
-            break
+            delete_pos(stressed_dict, from_pos, -100, hard_delete = 2)
+            continue
 
         max_pos = np.argmax(v.values())
         to_pos = list(v.keys())[max_pos]
 
+        if(list(v.values())[max_pos] == 0.0):
+            delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0)
+
         from_pos = np.array(from_pos)
         to_pos = np.array(to_pos)
+
 
         # the absolute worst way to do exclude from==to swaps, but fuck it
         if(from_pos[0] == to_pos[0] and from_pos[1] == to_pos[1]):
@@ -331,29 +358,47 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng):
         #if so, swap, and delete their entries in stressed_dict
         d = distance(from_pos, to_pos)
         if (d<=np.sqrt(2)):
-            #then swap can occur
-            swap(src, from_pos, to_pos)
+
             moves += 1 #direct swap with a neighbor contributing just 1 unit
             tot_distance += d
+
+            #make sure the move counter does not exceed the competency value
+            if (moves > comp_value):
+                moves -=1
+                tot_distance -= d
+                break_flag = True
+                break
+
+            #then swap can occur
+            swap(src, from_pos, to_pos)
             #delete their entries in the dict
             delete_pos(stressed_dict, from_pos, to_pos)
 
         else:
             if (plasticity_flag ==True):
                 #if not, then move only if plasticity is True
-                moves += (np.floor(d) + (np.floor(d) - 1)) #floor of distance for movement in one direction(approx) + (that distance -1 for movement of the other cell in the opposite direction)
+                temp_moves_counter = np.floor(d) + (np.floor(d) - 1) #floor of distance for movement in one direction(approx) + (that distance -1 for movement of the other cell in the opposite direction)
+                moves += temp_moves_counter
                 tot_distance += d
+
+                #make sure the move counter does not exceed the competency value
+                if (moves > comp_value):
+                    moves -= temp_moves_counter
+                    tot_distance -= d
+                    break_flag = True
+                    break
+
                 swap(src, from_pos, to_pos)
                 #remove their scores from every stressed_cell
                 delete_pos(stressed_dict, from_pos, to_pos)
             else:
                 # print("stuck")
-                delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0)
+                delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0) #no way you can swap, so might as well delete the to_pos from the from_pos
 
-    return moves, tot_distance
+    return moves, tot_distance, break_flag
 
 
-def apply_competency(src_pop_main, tar, comp_value, rng, plasticity_flag):
+def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_flag):
     src_pop = src_pop_main.copy()
     used_moves = []
     distance_log = []
@@ -364,13 +409,43 @@ def apply_competency(src_pop_main, tar, comp_value, rng, plasticity_flag):
         raise Exception("competency must be a positive integer\n")
 
     for curr_n, src in enumerate(src_pop):
+
         print("Idv: " + str(curr_n) +"/"+str(src_pop.shape[0]))
-        stress = get_stress(src, tar)
-        neighbor_requirement = get_required_neighbors(src, tar, stress)
-        stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
-        mvs, tot_dist = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng)
-        used_moves.append(mvs)
-        distance_log.append(tot_dist)
+
+        if (rng.random() <= p_recalc):
+            # once in a while, create a noisy competency process where its applied repeatedly until max_competency is reached
+            print(f"Noisy competency process| idv: #{curr_n}")
+
+            overall_mvs = 0
+            overall_dist = 0
+            stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
+            while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
+                stress = get_stress(src, tar)
+                neighbor_requirement = get_required_neighbors(src, tar, stress)
+                stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+                stressed_dict_copy = stressed_dict.copy()
+
+                mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs)
+                overall_mvs = mvs
+                overall_dist += tot_dist
+                if (break_flag):
+                    overall_dist -= tot_dist
+                    break
+
+            used_moves.append(overall_mvs)
+            distance_log.append(overall_dist)
+
+        else:
+            # otherwise just apply it once
+
+            stress = get_stress(src, tar)
+            neighbor_requirement = get_required_neighbors(src, tar, stress)
+            stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+
+            mvs, tot_dist, _ = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = 0)
+
+            used_moves.append(mvs)
+            distance_log.append(tot_dist)
 
     return src_pop, used_moves, distance_log
 
@@ -426,7 +501,7 @@ def point_mutate(pop, mut_rate, N_mut, N, rng):
     return mut_pop
 
 
-def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_num, switch_at):
+def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_num, switch_at, p_recalc):
     gen_matrix = np.zeros((n_gen, src_pop.shape[0]))
     phen_matrix = np.zeros((n_gen, src_pop.shape[0]))
 
@@ -452,7 +527,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
 
             print(f"Switched pflag to: {pflag}")
 
-        mod_pop, used_moves, tot_dist = apply_competency(src_pop, tar, comp_value, rng, plasticity_flag= pflag)
+        mod_pop, used_moves, tot_dist = apply_competency(src_pop, tar, comp_value, rng, p_recalc, plasticity_flag= pflag)
 
         phenotypic_fitness = [fitness(src_m, tar) for src_m in mod_pop]
         phen_state_log[i] = mod_pop.copy()
@@ -477,7 +552,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
     return gen_matrix, phen_matrix, comp_vals, dist_log, gen_state_log, phen_state_log
 
 
-def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pflag, max_allowed_phen, plot_dist):
+def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pflag, max_allowed_phen, plot_dist, target):
 
     gen = np.load(genf)
     phen = np.load(phenf)
@@ -488,6 +563,7 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
     phen_sts = np.load(phen_state_fname, allow_pickle = True)
 
     #create_movie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag)
+    # create_highletedFrameMovie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag, target)
 
     n_runs = gen.shape[0]
     n_gen = gen.shape[1]
@@ -540,6 +616,8 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
     if (plot_dist == True):
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         fig.suptitle(f"Stress Sharing:{pflag}")
+
+        # fig.suptitle(f"Hard wired")
 
         ax1.plot(gen_plot_means, label = "Genotypic Fitness")
         ax1.fill_between(range(len(gen_plot_means)), gen_plot_means-gen_plot_var, gen_plot_means+gen_plot_var, alpha = 0.3)
@@ -640,6 +718,62 @@ def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, 
     anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=len(gen_plot_frames), interval=1)
     writervideo = animation.FFMpegWriter(fps=10)
     anim_created.save(f"/Users/niwhskal/competency2d/output/rearrangement_{pflag}.mp4", writer=writervideo)
+
+
+
+def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, tar_shape, pflag, tar):
+
+    max_idxs = [np.argmax(phen_fitness[i]) for i in range(phen_fitness.shape[0])]
+
+    max_gen = [gen_fitness[i][max_idxs[i]]for i in range(gen_fitness.shape[0])]
+    max_phen = [phen_fitness[i][max_idxs[i]] for i in range(phen_fitness.shape[0])]
+    comp_vals = [comp_list[i][max_idxs[i]] for i in range(comp_list.shape[0])]
+
+    all_gen_states = np.array(list(gen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
+    all_phen_states = np.array(list(phen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
+
+    # out_gen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/genotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+    # out_phen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/phenotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+
+    gen_plot_frames = []
+    phen_plot_frames = []
+
+    tar = np.rot90(tar, k=2, axes = (0,1))
+    colors = 'black white #548C2F'.split()
+    cmap = matplotlib.colors.ListedColormap(colors, name='highl', N = None)
+
+    for i in range(phen_fitness.shape[0]):
+        #for each generation, get the max phenotypic fitness
+
+        gen_frame = all_gen_states[i][max_idxs[i]]#.reshape(tar_shape, tar_shape)
+        phen_frame = all_phen_states[i][max_idxs[i]]#.reshape(tar_shape, tar_shape, 1)
+
+        gen_plot_frames.append(gen_frame)# = (gen_frame*255).astype(np.uint8)
+        phen_plot_frames.append(phen_frame)
+        # phen_frame = (phen_frame*255).astype(np.uint8)
+
+    gen_plot_frames = gen_plot_frames[:300]
+    phen_plot_frames = phen_plot_frames[:300]
+
+    def ImageAnimation(i):
+
+        src = gen_plot_frames[i]
+        src = np.rot90(src, k=2, axes = (0,1))
+
+    # green: cells in their correct pos, white: 1.0, black: 0.0
+
+        # set correct pos cellst to idx of 2.0
+        src[np.where(src == tar)] = 2.0
+        ax.pcolormesh(src, edgecolors = '#000', vmin = 0, vmax=2, linewidth=2, cmap=cmap)
+
+    # show mat with custom cmap
+    fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=200)
+    fig.tight_layout()
+    ax.axis(False)
+
+    anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=len(gen_plot_frames), interval=1)
+    writervideo = animation.FFMpegWriter(fps=10)
+    anim_created.save(f"/Users/niwhskal/competency2d/output/highlighted_movie_{pflag}.mp4", writer=writervideo)
 
 
 if __name__ == "__main__":

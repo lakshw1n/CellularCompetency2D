@@ -53,40 +53,43 @@ import multiprocessing
 
 #       update swap_counter
 
+
 def main():
     # target = get_target_from_file()
     stringency = 0.1
     N_runs = 10
     N_indv = 100 #n of indviduals
-    n_gen = 2000
-    comp_value = 5000
+    n_gen = 1000
+    comp_value = 200
     pf_Flag = True
     mut_rate = 0.3
     tar_shape = 20
-    N_mutations = 2 #round(tar_shape*0.1) #this is sketchy, change this based on 2d grid shape
+    N_mutations = 5 #round(tar_shape*0.1) #this is sketchy, change this based on 2d grid shape
     plot_dist = True
+    src_folder = f"/Users/niwhskal/competency2d/output/noisy_comp_results/plasticity_{pf_Flag}"
+    p_recalc = 0.3
 
-    switch_at = round(n_gen/2)
+    switch_at = 0#round(n_gen/2)
 
     print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \n n_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n")
 
     if (switch_at ==0):
-        gen_fname = f"/Users/niwhskal/competency2d/output/gen_matrix{pf_Flag}.npy"
-        phen_fname = f"/Users/niwhskal/competency2d/output/phen_matrix{pf_Flag}.npy"
-        comp_fname = f"/Users/niwhskal/competency2d/output/comp_vals{pf_Flag}.npy"
-        dist_fname = f"/Users/niwhskal/competency2d/output/tot_dist{pf_Flag}.npy"
+        gen_fname = f"{src_folder}/gen_matrix{pf_Flag}.npy"
+        phen_fname = f"{src_folder}/phen_matrix{pf_Flag}.npy"
+        comp_fname = f"{src_folder}/comp_vals{pf_Flag}.npy"
+        dist_fname = f"{src_folder}/tot_dist{pf_Flag}.npy"
 
-        gen_state_fname = f"/Users/niwhskal/competency2d/output/gen_states{pf_Flag}.npy"
-        phen_state_fname = f"/Users/niwhskal/competency2d/output/phen_states{pf_Flag}.npy"
+        gen_state_fname = f"{src_folder}/gen_states{pf_Flag}.npy"
+        phen_state_fname = f"{src_folder}/phen_states{pf_Flag}.npy"
 
     else:
-        gen_fname = "/Users/niwhskal/competency2d/output/gen_matrix_ax.npy"
-        phen_fname = "/Users/niwhskal/competency2d/output/phen_matrix_ax.npy"
-        comp_fname = "/Users/niwhskal/competency2d/output/comp_vals_ax.npy"
-        dist_fname = "/Users/niwhskal/competency2d/output/tot_dist_ax.npy"
+        gen_fname = f"{src_folder}/gen_matrix_ax.npy"
+        phen_fname = f"{src_folder}/phen_matrix_ax.npy"
+        comp_fname = f"{src_folder}/comp_vals_ax.npy"
+        dist_fname = f"{src_folder}/tot_dist_ax.npy"
 
-        gen_state_fname = "/Users/niwhskal/competency2d/output/gen_states_ax.npy"
-        phen_state_fname = "/Users/niwhskal/competency2d/output/phen_states_ax.npy"
+        gen_state_fname = f"{src_folder}/gen_states_ax.npy"
+        phen_state_fname = f"{src_folder}/phen_states_ax.npy"
 
     rng = np.random.default_rng(12345)
 
@@ -97,6 +100,8 @@ def main():
     #                    [0, 0, 0, 0, 1, 0,0, 0, 0, 0],
     #                    [0, 0, 0, 0, 0, 1,0, 0, 0, 0],
     #                     [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
+
+    #---
     target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", tar_shape)
     print(target.shape)
 
@@ -131,7 +136,7 @@ def main():
     g_log = []
     p_log = []
 
-    evolveArgs = [*zip(src_popAll, tarArgs, [n_gen]*N_runs, [comp_value]*N_runs, rngArgs, [pf_Flag]*N_runs, [mut_rate]*N_runs, [N_mutations]*N_runs, idvArgs, [*range(N_runs)], [switch_at]*N_runs)]
+    evolveArgs = [*zip(src_popAll, tarArgs, [n_gen]*N_runs, [comp_value]*N_runs, rngArgs, [pf_Flag]*N_runs, [mut_rate]*N_runs, [N_mutations]*N_runs, idvArgs, [*range(N_runs)], [switch_at]*N_runs, [p_recalc]*N_runs)]
 
     pool_start = time.time()
     pool = multiprocessing.Pool(os.cpu_count() -1)
@@ -146,10 +151,13 @@ def main():
     g_log = np.array(g_log)
     p_log = np.array(p_log)
 
+
+    # old code: non-parallelized execution
+
     # loop_start= time.time()
     # for curr_run in range(N_runs):
     #     src_pop = hf.get_init_pop(target, N_indv, rng)
-    #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at)
+    #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
 
     #     g_fitnesses[curr_run] = g
     #     phen_fitnesses[curr_run] = p
@@ -170,8 +178,46 @@ def main():
     np.save(gen_state_fname, g_log[0])
     np.save(phen_state_fname, p_log[0])
 
-    hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist)
+    hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target)
+
+    # run_singleidv_test(target, rng)
+
+
+def run_singleidv_test(target, rng):
+    src = hf.get_init_pop(target, 1, rng)
+    mvs = 0
+    run_count = 0
+    run_count += 1
+    src, mvs, dist = hf.apply_competency(src, target, 1000, rng, 1.0, True)
+    print(f"run: {run_count} | moves: {mvs} | dist: {dist} | fitness: {hf.fitness(src, target)}")
+
+
+def save_scrambled_src(tar, rng):
+    src = hf.scramble(tar, rng)
+    src = src.astype(np.int32)
+    with open('/Users/niwhskal/p5_test.js/src.txt', 'w') as F:
+        for i in range(src.shape[0]):
+            for j in range(src.shape[1]):
+                F.write(str(int(src[i][j])))
+            F.write('\n');
+
+    with open('/Users/niwhskal/p5_test.js/tar.txt', 'w') as F:
+        for i in range(tar.shape[0]):
+            for j in range(tar.shape[1]):
+                F.write(str(int(tar[i][j])))
+            F.write('\n');
+
+    np.save("/Users/niwhskal/competency2d/visualisation/single_frames/src.npy", src)
+    np.save("/Users/niwhskal/competency2d/visualisation/single_frames/tar.npy", tar)
+
+
 
 if (__name__ == "__main__"):
-    main()
 
+    target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", 20)
+    print(target.shape)
+
+    rng = np.random.default_rng(12345)
+    # save_scrambled_src(target, rng)
+
+    main()
