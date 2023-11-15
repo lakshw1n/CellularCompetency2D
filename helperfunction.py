@@ -320,6 +320,41 @@ def swap(indv, from_pos, to_pos):
     indv[tuple(from_pos)] = indv[tuple(to_pos)]
     indv[tuple(to_pos)] = temp
 
+def purge_emptykeys(stressed_dict):
+
+    outer_key_del = []
+    inner_key_del = []
+
+    for from_k, from_v in stressed_dict.items():
+        if (len(from_v.keys()) ==0):
+            outer_key_del.append(tuple(from_k))
+            continue
+        for k_inner, v_inner in from_v.items():
+            if (v_inner == 0.0):
+                inner_key_del.append({from_k: k_inner})
+
+
+    for d_p in outer_key_del:
+        delete_pos(stressed_dict, d_p, -100, hard_delete = 2)
+
+    for i in inner_key_del:
+        fr_k = tuple(i.keys())[0]
+        to_k = tuple(i.values())[0]
+        delete_pos(stressed_dict, fr_k, to_k, hard_delete = 0)
+
+    #make sure those from_keys with no elements are again checked and deleted
+
+    del_again = []
+    for from_k, from_v in stressed_dict.items():
+        if (len(from_v) == 0):
+            del_again.append(tuple(from_k))
+
+    for i in del_again:
+        delete_pos(stressed_dict, i, -100, hard_delete = 2)
+
+
+
+
 def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count):
     #for each stressed cell find the maximum to_be_idx signal value
     #move once for each position
@@ -330,28 +365,29 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, curr
     break_flag = False
 
     while(len(stressed_dict) and moves < comp_value):
+
+        # purge those cells with empty values of with a value of 0.0
+        purge_emptykeys(stressed_dict)
+
+        if (len(stressed_dict) == 0):
+            break_flag = True
+            break
+
         #pick a random stressed position
         kys = list(stressed_dict.keys())
         from_pos = rng.choice(kys)
 
         v = stressed_dict[tuple(from_pos)]
 
-        if (len(list(v.values()))) == 0:
-            delete_pos(stressed_dict, from_pos, -100, hard_delete = 2)
-            continue
-
         max_pos = np.argmax(v.values())
         to_pos = list(v.keys())[max_pos]
-
-        if(list(v.values())[max_pos] == 0.0):
-            delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0)
 
         from_pos = np.array(from_pos)
         to_pos = np.array(to_pos)
 
-
-        # the absolute worst way to do exclude from==to swaps, but fuck it
-        if(from_pos[0] == to_pos[0] and from_pos[1] == to_pos[1]):
+        # if a from_key contains a to_key of the same indexes, delete it
+        if(tuple(from_pos) == tuple(to_pos)):
+            delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0)
             continue
 
         #check if any other cell in stressed_dict needs to move to from_pos
@@ -373,6 +409,9 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, curr
             swap(src, from_pos, to_pos)
             #delete their entries in the dict
             delete_pos(stressed_dict, from_pos, to_pos)
+
+            # print("---"*5)
+            # print(stressed_dict)
 
         else:
             if (plasticity_flag ==True):
@@ -396,6 +435,31 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, curr
                 delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 0) #no way you can swap, so might as well delete the to_pos from the from_pos
 
     return moves, tot_distance, break_flag
+
+def remove_faroffcells(stressed_dict):
+
+    distance = lambda f,t: np.sqrt((f[0]-t[0])**2 + (f[1] - t[1])**2)
+    to_del = []
+
+    to_del_inner = []
+
+    for from_key, v in stressed_dict.items():
+        for to_key, v_inner in v.items():
+            if (distance(from_key, to_key) > np.sqrt(2)):
+                # delete_pos(stressed_dict, from_key, to_key, hard_delete = 0)
+                to_del_inner.append([tuple(from_key), tuple(to_key)])
+
+
+    for src_del_inner, tar_del_inner in to_del_inner:
+        delete_pos(stressed_dict, src_del_inner, tar_del_inner, hard_delete = 0)
+
+    for from_key, v in stressed_dict.items():
+        #if its keys are empty delete the entry altogether
+        if (len(stressed_dict[tuple(from_key)].values()) == 0):
+            to_del.append(tuple(from_key))
+
+    for val_to_del in to_del:
+        delete_pos(stressed_dict, val_to_del, -100, hard_delete = 2)
 
 
 def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_flag):
@@ -423,6 +487,17 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
                 stress = get_stress(src, tar)
                 neighbor_requirement = get_required_neighbors(src, tar, stress)
                 stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+
+                # delete cells with empty values or those with a value of 0.0
+                purge_emptykeys(stressed_dict)
+
+                if (plasticity_flag == False):
+                    # make sure only nearby cells exist
+                    remove_faroffcells(stressed_dict)
+                    # in case there's none, then break
+                    if (len(stressed_dict) == 0):
+                        break
+
                 stressed_dict_copy = stressed_dict.copy()
 
                 mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs)

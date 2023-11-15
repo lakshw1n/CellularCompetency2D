@@ -57,11 +57,11 @@ import multiprocessing
 def main():
     # target = get_target_from_file()
     stringency = 0.1
-    N_runs = 10
+    N_runs = 2
     N_indv = 100 #n of indviduals
-    n_gen = 1000
-    comp_value = 200
-    pf_Flag = True
+    n_gen = 2000
+    comp_value = 0
+    pf_Flag = False
     mut_rate = 0.3
     tar_shape = 20
     N_mutations = 5 #round(tar_shape*0.1) #this is sketchy, change this based on 2d grid shape
@@ -181,15 +181,38 @@ def main():
     hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target)
 
     # run_singleidv_test(target, rng)
-
+    # run_dict_purgetest(rng)
 
 def run_singleidv_test(target, rng):
-    src = hf.get_init_pop(target, 1, rng)
+    src = hf.get_init_pop(target, 100, rng)
     mvs = 0
     run_count = 0
     run_count += 1
     src, mvs, dist = hf.apply_competency(src, target, 1000, rng, 1.0, True)
     print(f"run: {run_count} | moves: {mvs} | dist: {dist} | fitness: {hf.fitness(src, target)}")
+
+def run_dict_purgetest(rng):
+    d = {}
+    for i in range(20):
+        temp = {}
+        for j in range(10):
+            if (rng.random() <0.5):
+                val = 0.0
+
+            else:
+                val = rng.random()
+
+
+            first, sec = rng.integers(10, size = 2)
+            temp[tuple([first, sec])] = val
+
+        first_o, sec_o = rng.integers(10, size = 2)
+
+        d[tuple([first_o, sec_o])] = temp
+
+    hf.purge_emptykeys(d)
+
+    print(d)
 
 
 def save_scrambled_src(tar, rng):
