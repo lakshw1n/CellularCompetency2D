@@ -55,53 +55,53 @@ import multiprocessing
 
 
 def main():
-    # target = get_target_from_file()
     stringency = 0.1
-    N_runs = 2
+    N_runs = 5
     N_indv = 100 #n of indviduals
+    tar_shape = 30 #25
     n_gen = 2000
-    comp_value = 0
-    pf_Flag = False
+    comp_value = int((tar_shape**2)* 0.75)
+    pf_Flag = True
     mut_rate = 0.3
-    tar_shape = 20
-    N_mutations = 5 #round(tar_shape*0.1) #this is sketchy, change this based on 2d grid shape
+    N_mutations = int(np.ceil(tar_shape*0.3))
+
     plot_dist = True
     src_folder = f"/Users/niwhskal/competency2d/output/noisy_comp_results/plasticity_{pf_Flag}"
-    p_recalc = 0.3
+    p_recalc = 1.0 #increasing this value delays the time it takes to reach max fitness. Eg: a p_recalc probability of 1.0 takes ~300 generations more compared to a p_recalc prob of 0.3 in order to reach max fitness.
 
     switch_at = 0#round(n_gen/2)
 
     print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \n n_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n")
 
     if (switch_at ==0):
-        gen_fname = f"{src_folder}/gen_matrix{pf_Flag}.npy"
-        phen_fname = f"{src_folder}/phen_matrix{pf_Flag}.npy"
-        comp_fname = f"{src_folder}/comp_vals{pf_Flag}.npy"
-        dist_fname = f"{src_folder}/tot_dist{pf_Flag}.npy"
+        gen_fname = f"{src_folder}/gen_matrix{pf_Flag}_{tar_shape}.npy"
+        phen_fname = f"{src_folder}/phen_matrix{pf_Flag}_{tar_shape}.npy"
+        comp_fname = f"{src_folder}/comp_vals{pf_Flag}_{tar_shape}.npy"
+        dist_fname = f"{src_folder}/tot_dist{pf_Flag}_{tar_shape}.npy"
 
-        gen_state_fname = f"{src_folder}/gen_states{pf_Flag}.npy"
-        phen_state_fname = f"{src_folder}/phen_states{pf_Flag}.npy"
+        gen_state_fname = ""#f"{src_folder}/gen_states{pf_Flag}_{tar_shape}.npy"
+        phen_state_fname = ""#f"{src_folder}/phen_states{pf_Flag}_{tar_shape}.npy"
 
     else:
-        gen_fname = f"{src_folder}/gen_matrix_ax.npy"
-        phen_fname = f"{src_folder}/phen_matrix_ax.npy"
-        comp_fname = f"{src_folder}/comp_vals_ax.npy"
-        dist_fname = f"{src_folder}/tot_dist_ax.npy"
+        gen_fname = f"{src_folder}/gen_matrix_ax_{tar_shape}.npy"
+        phen_fname = f"{src_folder}/phen_matrix_ax_{tar_shape}.npy"
+        comp_fname = f"{src_folder}/comp_vals_ax_{tar_shape}.npy"
+        dist_fname = f"{src_folder}/tot_dist_ax_{tar_shape}.npy"
 
-        gen_state_fname = f"{src_folder}/gen_states_ax.npy"
-        phen_state_fname = f"{src_folder}/phen_states_ax.npy"
+        gen_state_fname ="" #f"{src_folder}/gen_states_ax_{tar_shape}.npy"
+        phen_state_fname ="" #f"{src_folder}/phen_states_ax_{tar_shape}.npy"
 
     rng = np.random.default_rng(12345)
 
     # # target = np.array([[1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    #                   [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    #                   [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-    #                   [0, 0, 0, 1, 0, 0,0, 0, 0, 0],
-    #                    [0, 0, 0, 0, 1, 0,0, 0, 0, 0],
-    #                    [0, 0, 0, 0, 0, 1,0, 0, 0, 0],
-    #                     [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
+    #                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+    #                    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+    #                    [0, 0, 0, 1, 0, 0,0, 0, 0, 0],
+    #                     [0, 0, 0, 0, 1, 0,0, 0, 0, 0],
+    #                     [0, 0, 0, 0, 0, 1,0, 0, 0, 0],
+    #                      [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
 
-    #---
+    # ---
     target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", tar_shape)
     print(target.shape)
 
@@ -124,7 +124,7 @@ def main():
     loop_start = time.time()
     src_popAll = []
     for i in range(N_runs):
-        src_popAll.append(hf.get_init_pop(target, N_indv, rng))
+     src_popAll.append(hf.get_init_pop(target, N_indv, rng))
 
     loop_end = time.time()
     print(f"Time (loop): {loop_end - loop_start} s")
@@ -148,27 +148,27 @@ def main():
     p = np.array(p)
     cv = np.array(cv)
     dis = np.array(dis)
-    g_log = np.array(g_log)
-    p_log = np.array(p_log)
+    # g_log = np.array(g_log)
+    # p_log = np.array(p_log)
 
 
-    # old code: non-parallelized execution
+     # old code: non-parallelized execution
 
-    # loop_start= time.time()
-    # for curr_run in range(N_runs):
-    #     src_pop = hf.get_init_pop(target, N_indv, rng)
-    #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
+     # loop_start= time.time()
+     # for curr_run in range(N_runs):
+     #     src_pop = hf.get_init_pop(target, N_indv, rng)
+     #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
 
-    #     g_fitnesses[curr_run] = g
-    #     phen_fitnesses[curr_run] = p
-    #     allCompVals[curr_run] = cv
-    #     allDistVals[curr_run] = dis
+     #     g_fitnesses[curr_run] = g
+     #     phen_fitnesses[curr_run] = p
+     #     allCompVals[curr_run] = cv
+     #     allDistVals[curr_run] = dis
 
-    #     allGStates[curr_run] = g_log
-    #     allPStates[curr_run] = p_log
+     #     allGStates[curr_run] = g_log
+     #     allPStates[curr_run] = p_log
 
-    # loop_end = time.time()
-    # print(f"loop time: {loop_end-loop_start} s")
+     # loop_end = time.time()
+     # print(f"loop time: {loop_end-loop_start} s")
 
     np.save(gen_fname, g)
     np.save(phen_fname, p)
@@ -179,6 +179,7 @@ def main():
     np.save(phen_state_fname, p_log[0])
 
     hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target)
+
 
     # run_singleidv_test(target, rng)
     # run_dict_purgetest(rng)
@@ -237,8 +238,8 @@ def save_scrambled_src(tar, rng):
 
 if (__name__ == "__main__"):
 
-    target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", 20)
-    print(target.shape)
+    # target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", 20)
+    # print(target.shape)
 
     rng = np.random.default_rng(12345)
     # save_scrambled_src(target, rng)

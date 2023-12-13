@@ -66,11 +66,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
         col_pos = j
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx] >0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 1): #south
         row_pos = i+1
@@ -78,12 +74,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
         col_pos = j
         new_idx = (row_pos, col_pos)
-
-        if (stress[new_idx] >0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 2): #west
         row_pos = i
@@ -92,11 +83,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 3): #east
         row_pos = i
@@ -105,11 +92,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 4): #nw
         row_pos = i-1
@@ -118,11 +101,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 5): #ne
         row_pos = i-1
@@ -131,11 +110,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 6): #sw
         row_pos = i+1
@@ -144,11 +119,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
     elif (dir == 7): #se
         row_pos = i+1
@@ -157,11 +128,7 @@ def get_cellId_from_direction(stress, tar, curr_loc, dir):
             return -1, -1
 
         new_idx = (row_pos, col_pos)
-        if (stress[new_idx]>0):
-            return new_idx, tar[new_idx]
-
-        else:
-            return -1, -1
+        return new_idx, tar[new_idx]
 
 
 def indv_cell_requirement(idx, src, tar, stress):
@@ -179,8 +146,12 @@ def indv_cell_requirement(idx, src, tar, stress):
     neighbor_list = []
     for dir in range(8):
         to_be_idx, to_be_neighbor = get_cellId_from_direction(stress, tar, idx, dir)
-        if to_be_neighbor == -1:
+        if (to_be_neighbor == -1):
             continue
+
+        if (stress[to_be_idx]<=0):
+            continue
+
         neighbor_list.append((to_be_idx, to_be_neighbor))
 
     return neighbor_list
@@ -355,13 +326,13 @@ def purge_emptykeys(stressed_dict):
 
 
 
-def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count):
+def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count, current_dist_count):
     #for each stressed cell find the maximum to_be_idx signal value
     #move once for each position
 
     distance = lambda f,t: np.sqrt((f[0]-t[0])**2 + (f[1] - t[1])**2)
     moves = current_move_count #so that we can break as soon as mvs hits comp_value
-    tot_distance = 0.0
+    tot_distance = current_dist_count
     break_flag = False
 
     while(len(stressed_dict) and moves < comp_value):
@@ -500,11 +471,10 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
 
                 stressed_dict_copy = stressed_dict.copy()
 
-                mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs)
+                mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
                 overall_mvs = mvs
-                overall_dist += tot_dist
+                overall_dist = tot_dist
                 if (break_flag):
-                    overall_dist -= tot_dist
                     break
 
             used_moves.append(overall_mvs)
@@ -512,12 +482,15 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
 
         else:
             # otherwise just apply it once
-
             stress = get_stress(src, tar)
             neighbor_requirement = get_required_neighbors(src, tar, stress)
             stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
 
-            mvs, tot_dist, _ = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = 0)
+            # delete cells with empty values or those with a value of 0.0
+            purge_emptykeys(stressed_dict)
+
+
+            mvs, tot_dist, _ = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = 0, current_dist_count = 0)
 
             used_moves.append(mvs)
             distance_log.append(tot_dist)
@@ -585,6 +558,11 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
     gen_state_log = {}
     phen_state_log = {}
 
+    if (pflag == "hw"):
+        comp_value = 0
+        print("HW run, setting competency to 0")
+
+
 
     print(f"pflag: {pflag}")
     for i in range(n_gen):
@@ -592,15 +570,18 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
         genotypic_fitness = [fitness(src, tar) for src in src_pop]
         gen_state_log[i] = src_pop.copy()
 
-
         if (i == switch_at and switch_at >0):
             if (pflag == True):
                 pflag = False
 
-            else:
+            elif (pflag == False):
                 pflag = True
 
+            else:
+                pflag = "hw"
+
             print(f"Switched pflag to: {pflag}")
+
 
         mod_pop, used_moves, tot_dist = apply_competency(src_pop, tar, comp_value, rng, p_recalc, plasticity_flag= pflag)
 
@@ -634,8 +615,12 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
     comp_list = np.load(compf)
     dist_list = np.load(dist_fname)
 
-    gen_sts = np.load(gen_state_fname, allow_pickle = True)
-    phen_sts = np.load(phen_state_fname, allow_pickle = True)
+    # gen_sts = np.load(gen_state_fname, allow_pickle = True)
+    # phen_sts = np.load(phen_state_fname, allow_pickle = True)
+
+    #zoom into higher fitness values
+    n = 4 # stay b/w 3 and 4
+    fitness_mod = lambda f: (9**f)/9.0 #-np.log(1 + 10**(-n) - f) / (np.log(10)*n)
 
     #create_movie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag)
     # create_highletedFrameMovie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag, target)
@@ -655,8 +640,8 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
 
         max_idxs = [np.argmax(phen[run_num, i]) for i in range(n_gen)]
 
-        gen_plot[run_num] =  [gen[run_num, i][max_idxs[i]]for i in range(n_gen)]
-        phen_plot[run_num] = [phen[run_num, i][max_idxs[i]] for i in range(n_gen)]
+        gen_plot[run_num] =  [fitness_mod(gen[run_num, i][max_idxs[i]]) for i in range(n_gen)]
+        phen_plot[run_num] = [fitness_mod(phen[run_num, i][max_idxs[i]]) for i in range(n_gen)]
         cv_plot[run_num] = [comp_list[run_num, i][max_idxs[i]] for i in range(n_gen)]
         dist_plot[run_num] = [dist_list[run_num, i][max_idxs[i]] for i in range(n_gen)]
 
@@ -699,7 +684,9 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
 
         ax1.plot(phen_plot_means, label = "Phenotypic Fitness")
         ax1.fill_between(range(len(phen_plot_means)), phen_plot_means-phen_plot_var, phen_plot_means+phen_plot_var, alpha = 0.3)
-        ax1.set_ylim([0.65, 1.0])
+        ax1.set_ylim([np.min(gen_plot_means)-0.1, np.max(phen_plot_means)+0.02])
+        # custom_ticks = np.append(np.arange(0.6, 0.95, 0.05), np.arange(0.95, 1, 0.01))
+        # ax1.set_yticks(custom_ticks)
 
         ax1.set_xlabel("Generation")
         ax1.set_ylabel("Max Fitness")
