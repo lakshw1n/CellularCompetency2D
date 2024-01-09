@@ -58,7 +58,7 @@ def main():
     stringency = 0.1
     N_runs = 5
     N_indv = 100 #n of indviduals
-    tar_shape = 30 #25
+    tar_shape = 100 #25
     n_gen = 2000
     comp_value = int((tar_shape**2)* 0.75)
     pf_Flag = True

@@ -3,6 +3,7 @@
 #author: Lakshwin Shreesha
 #date: 9/09/2023
 #library functions for the stress based competency model
+import os
 import numpy as np
 import multiprocessing
 import numpy as np
@@ -11,9 +12,8 @@ import matplotlib.cm as cm
 import matplotlib
 from matplotlib import animation
 import time
-
+import multiprocessing
 import cv2
-from multiprocessing import Pool
 
 def load_from_txt(fname, tar_shape):
     im = cv2.imread(fname, cv2.IMREAD_GRAYSCALE)
@@ -443,8 +443,9 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
     if comp_value <0:
         raise Exception("competency must be a positive integer\n")
 
-    for curr_n, src in enumerate(src_pop):
 
+    #parallelize
+    for curr_n, src in enumerate(src_pop):
         print("Idv: " + str(curr_n) +"/"+str(src_pop.shape[0]))
 
         if (rng.random() <= p_recalc):
@@ -567,6 +568,8 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
     print(f"pflag: {pflag}")
     for i in range(n_gen):
         start_time = time.time()
+        #parallelize
+
         genotypic_fitness = [fitness(src, tar) for src in src_pop]
         gen_state_log[i] = src_pop.copy()
 
@@ -585,6 +588,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
 
         mod_pop, used_moves, tot_dist = apply_competency(src_pop, tar, comp_value, rng, p_recalc, plasticity_flag= pflag)
 
+        #parallelize
         phenotypic_fitness = [fitness(src_m, tar) for src_m in mod_pop]
         phen_state_log[i] = mod_pop.copy()
 
