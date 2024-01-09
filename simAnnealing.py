@@ -64,14 +64,14 @@ def main():
     pf_Flag = True
     mut_rate = 0.3
     N_mutations = int(np.ceil(tar_shape*0.3))
-
     plot_dist = True
+
+    cwd = os.getcwd()
     src_dir = os.path.join(cwd, f"output/plasticity_{pf_Flag}/")
     plots_path = os.path.join(src_dir, "plots")
 
-    cwd = os.getcwd()
     if not os.path.exists(plots_path):
-        os.makedirs(directory)
+        os.makedirs(plots_path)
 
     p_recalc = 1.0 #increasing this value delays the time it takes to reach max fitness. Eg: a p_recalc probability of 1.0 takes ~300 generations more compared to a p_recalc prob of 0.3 in order to reach max fitness.
 
@@ -108,7 +108,7 @@ def main():
     #                      [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
 
     # ---
-    target = hf.load_from_txt(os.path.join(cwd, "/smiley.png"), tar_shape)
+    target = hf.load_from_txt(os.path.join(cwd, "./smiley.png"), tar_shape)
     print(target.shape)
 
     g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
