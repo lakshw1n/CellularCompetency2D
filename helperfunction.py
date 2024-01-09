@@ -443,46 +443,14 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
     if comp_value <0:
         raise Exception("competency must be a positive integer\n")
 
-
     #parallelize
     for curr_n, src in enumerate(src_pop):
         print("Idv: " + str(curr_n) +"/"+str(src_pop.shape[0]))
 
-        if (rng.random() <= p_recalc):
-            # once in a while, create a noisy competency process where its applied repeatedly until max_competency is reached
-            print(f"Noisy competency process| idv: #{curr_n}")
-
-            overall_mvs = 0
-            overall_dist = 0
-            stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
-            while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
-                stress = get_stress(src, tar)
-                neighbor_requirement = get_required_neighbors(src, tar, stress)
-                stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
-
-                # delete cells with empty values or those with a value of 0.0
-                purge_emptykeys(stressed_dict)
-
-                if (plasticity_flag == False):
-                    # make sure only nearby cells exist
-                    remove_faroffcells(stressed_dict)
-                    # in case there's none, then break
-                    if (len(stressed_dict) == 0):
-                        break
-
-                stressed_dict_copy = stressed_dict.copy()
-
-                mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
-                overall_mvs = mvs
-                overall_dist = tot_dist
-                if (break_flag):
-                    break
-
-            used_moves.append(overall_mvs)
-            distance_log.append(overall_dist)
-
-        else:
-            # otherwise just apply it once
+        overall_mvs = 0
+        overall_dist = 0
+        stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
+        while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
             stress = get_stress(src, tar)
             neighbor_requirement = get_required_neighbors(src, tar, stress)
             stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
@@ -490,11 +458,23 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
             # delete cells with empty values or those with a value of 0.0
             purge_emptykeys(stressed_dict)
 
+            if (plasticity_flag == False):
+                # make sure only nearby cells exist
+                remove_faroffcells(stressed_dict)
+                # in case there's none, then break
+                if (len(stressed_dict) == 0):
+                    break
 
-            mvs, tot_dist, _ = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = 0, current_dist_count = 0)
+            stressed_dict_copy = stressed_dict.copy()
 
-            used_moves.append(mvs)
-            distance_log.append(tot_dist)
+            mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
+            overall_mvs = mvs
+            overall_dist = tot_dist
+            if (break_flag):
+                break
+
+        used_moves.append(overall_mvs)
+        distance_log.append(overall_dist)
 
     return src_pop, used_moves, distance_log
 
@@ -568,7 +548,6 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
     print(f"pflag: {pflag}")
     for i in range(n_gen):
         start_time = time.time()
-        #parallelize
 
         genotypic_fitness = [fitness(src, tar) for src in src_pop]
         gen_state_log[i] = src_pop.copy()
