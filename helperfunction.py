@@ -612,7 +612,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
     return gen_matrix, phen_matrix, comp_vals, dist_log, gen_state_log, phen_state_log
 
 
-def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pflag, max_allowed_phen, plot_dist, target):
+def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pflag, max_allowed_phen, plot_dist, target, save_path):
 
     gen = np.load(genf)
     phen = np.load(phenf)
@@ -626,8 +626,8 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
     n = 4 # stay b/w 3 and 4
     fitness_mod = lambda f: (9**f)/9.0 #-np.log(1 + 10**(-n) - f) / (np.log(10)*n)
 
-    #create_movie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag)
-    # create_highletedFrameMovie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag, target)
+    #create_movie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag, save_path)
+    # create_highletedFrameMovie(gen[0], phen[0], comp_list[0], gen_sts.item(), phen_sts.item(), tar_shape, pflag, target, save_path)
 
     n_runs = gen.shape[0]
     n_gen = gen.shape[1]
@@ -739,11 +739,11 @@ def plot(genf, phenf, compf, dist_fname, gen_state_fname, phen_state_fname, tar_
         ax1.legend()
         ax2.legend()
 
-    plt.savefig(f"/Users/niwhskal/competency2d/output/result_ss_{pflag}.png")
+    plt.savefig(os.path.join(save_path, f"main_plot{pflag}.png"))
     plt.show()
 
 
-def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, tar_shape, pflag):
+def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, tar_shape, pflag, save_path):
 
     max_idxs = [np.argmax(phen_fitness[i]) for i in range(phen_fitness.shape[0])]
 
@@ -754,8 +754,8 @@ def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, 
     all_gen_states = np.array(list(gen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
     all_phen_states = np.array(list(phen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
 
-    # out_gen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/genotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
-    # out_phen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/phenotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+    # out_gen = cv2.VideoWriter(os.path.join(save_path, f"genotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+    # out_phen = cv2.VideoWriter(os.path.join(save_path, f"phenotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
 
     gen_plot_frames = []
     phen_plot_frames = []
@@ -783,11 +783,11 @@ def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, 
     fig, (ax1, ax2) = plt.subplots(1, 2)
     anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=len(gen_plot_frames), interval=1)
     writervideo = animation.FFMpegWriter(fps=10)
-    anim_created.save(f"/Users/niwhskal/competency2d/output/rearrangement_{pflag}.mp4", writer=writervideo)
+    anim_created.save(os.path.join(save_path, f"rearrangement_{pflag}.mp4"), writer=writervideo)
 
 
 
-def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, tar_shape, pflag, tar):
+def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, tar_shape, pflag, tar, save_path):
 
     max_idxs = [np.argmax(phen_fitness[i]) for i in range(phen_fitness.shape[0])]
 
@@ -798,8 +798,8 @@ def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states,
     all_gen_states = np.array(list(gen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
     all_phen_states = np.array(list(phen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
 
-    # out_gen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/genotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
-    # out_phen = cv2.VideoWriter(f"/Users/niwhskal/competency2d/output/phenotypes_{pflag}.avi",cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+    # out_gen = cv2.VideoWriter(os.path.join(save_path, f"genotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
+    # out_phen = cv2.VideoWriter(os.path.join(save_path, f"phenotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
 
     gen_plot_frames = []
     phen_plot_frames = []
@@ -809,8 +809,8 @@ def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states,
     cmap = matplotlib.colors.ListedColormap(colors, name='highl', N = None)
 
     for i in range(phen_fitness.shape[0]):
-        #for each generation, get the max phenotypic fitness
 
+        #for each generation, get the max phenotypic fitness
         gen_frame = all_gen_states[i][max_idxs[i]]#.reshape(tar_shape, tar_shape)
         phen_frame = all_phen_states[i][max_idxs[i]]#.reshape(tar_shape, tar_shape, 1)
 
@@ -839,12 +839,12 @@ def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states,
 
     anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=len(gen_plot_frames), interval=1)
     writervideo = animation.FFMpegWriter(fps=10)
-    anim_created.save(f"/Users/niwhskal/competency2d/output/highlighted_movie_{pflag}.mp4", writer=writervideo)
+    anim_created.save(os.path.join(save_path, f"highlighted_movie_{pflag}.mp4"), writer=writervideo)
 
 
 if __name__ == "__main__":
     # rng = np.random.default_rng(12345)
-    # tar = load_from_txt("/Users/niwhskal/Downloads/smiley.png", 35)
+    # tar = load_from_txt("./smiley.png", 35)
     # all_frames = [scramble(tar, rng) for i in range(100)]
 
     # anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=100, interval=1)

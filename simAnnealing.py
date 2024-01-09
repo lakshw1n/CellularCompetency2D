@@ -66,7 +66,13 @@ def main():
     N_mutations = int(np.ceil(tar_shape*0.3))
 
     plot_dist = True
-    src_folder = f"/Users/niwhskal/competency2d/output/noisy_comp_results/plasticity_{pf_Flag}"
+    src_dir = os.path.join(cwd, f"output/plasticity_{pf_Flag}/")
+    plots_path = os.path.join(src_dir, "plots")
+
+    cwd = os.getcwd()
+    if not os.path.exists(plots_path):
+        os.makedirs(directory)
+
     p_recalc = 1.0 #increasing this value delays the time it takes to reach max fitness. Eg: a p_recalc probability of 1.0 takes ~300 generations more compared to a p_recalc prob of 0.3 in order to reach max fitness.
 
     switch_at = 0#round(n_gen/2)
@@ -74,22 +80,22 @@ def main():
     print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \n n_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n")
 
     if (switch_at ==0):
-        gen_fname = f"{src_folder}/gen_matrix{pf_Flag}_{tar_shape}.npy"
-        phen_fname = f"{src_folder}/phen_matrix{pf_Flag}_{tar_shape}.npy"
-        comp_fname = f"{src_folder}/comp_vals{pf_Flag}_{tar_shape}.npy"
-        dist_fname = f"{src_folder}/tot_dist{pf_Flag}_{tar_shape}.npy"
+        gen_fname = f"{src_dir}/gen_matrix{pf_Flag}_{tar_shape}.npy"
+        phen_fname = f"{src_dir}/phen_matrix{pf_Flag}_{tar_shape}.npy"
+        comp_fname = f"{src_dir}/comp_vals{pf_Flag}_{tar_shape}.npy"
+        dist_fname = f"{src_dir}/tot_dist{pf_Flag}_{tar_shape}.npy"
 
-        gen_state_fname = ""#f"{src_folder}/gen_states{pf_Flag}_{tar_shape}.npy"
-        phen_state_fname = ""#f"{src_folder}/phen_states{pf_Flag}_{tar_shape}.npy"
+        gen_state_fname = ""#f"{src_dir}/gen_states{pf_Flag}_{tar_shape}.npy"
+        phen_state_fname = ""#f"{src_dir}/phen_states{pf_Flag}_{tar_shape}.npy"
 
     else:
-        gen_fname = f"{src_folder}/gen_matrix_ax_{tar_shape}.npy"
-        phen_fname = f"{src_folder}/phen_matrix_ax_{tar_shape}.npy"
-        comp_fname = f"{src_folder}/comp_vals_ax_{tar_shape}.npy"
-        dist_fname = f"{src_folder}/tot_dist_ax_{tar_shape}.npy"
+        gen_fname = f"{src_dir}/gen_matrix_ax_{tar_shape}.npy"
+        phen_fname = f"{src_dir}/phen_matrix_ax_{tar_shape}.npy"
+        comp_fname = f"{src_dir}/comp_vals_ax_{tar_shape}.npy"
+        dist_fname = f"{src_dir}/tot_dist_ax_{tar_shape}.npy"
 
-        gen_state_fname ="" #f"{src_folder}/gen_states_ax_{tar_shape}.npy"
-        phen_state_fname ="" #f"{src_folder}/phen_states_ax_{tar_shape}.npy"
+        gen_state_fname ="" #f"{src_dir}/gen_states_ax_{tar_shape}.npy"
+        phen_state_fname ="" #f"{src_dir}/phen_states_ax_{tar_shape}.npy"
 
     rng = np.random.default_rng(12345)
 
@@ -102,7 +108,7 @@ def main():
     #                      [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
 
     # ---
-    target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", tar_shape)
+    target = hf.load_from_txt(os.path.join(cwd, "/smiley.png"), tar_shape)
     print(target.shape)
 
     g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
@@ -178,7 +184,7 @@ def main():
     np.save(gen_state_fname, g_log[0])
     np.save(phen_state_fname, p_log[0])
 
-    hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target)
+    hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target, plots_path)
 
 
     # run_singleidv_test(target, rng)
@@ -216,30 +222,27 @@ def run_dict_purgetest(rng):
     print(d)
 
 
-def save_scrambled_src(tar, rng):
-    src = hf.scramble(tar, rng)
-    src = src.astype(np.int32)
-    with open('/Users/niwhskal/p5_test.js/src.txt', 'w') as F:
-        for i in range(src.shape[0]):
-            for j in range(src.shape[1]):
-                F.write(str(int(src[i][j])))
-            F.write('\n');
+# def save_scrambled_src(tar, rng):
+#     src = hf.scramble(tar, rng)
+#     src = src.astype(np.int32)
+#     with open('/Users/niwhskal/p5_test.js/src.txt', 'w') as F:
+#         for i in range(src.shape[0]):
+#             for j in range(src.shape[1]):
+#                 F.write(str(int(src[i][j])))
+#             F.write('\n');
 
-    with open('/Users/niwhskal/p5_test.js/tar.txt', 'w') as F:
-        for i in range(tar.shape[0]):
-            for j in range(tar.shape[1]):
-                F.write(str(int(tar[i][j])))
-            F.write('\n');
+#     with open('/Users/niwhskal/p5_test.js/tar.txt', 'w') as F:
+#         for i in range(tar.shape[0]):
+#             for j in range(tar.shape[1]):
+#                 F.write(str(int(tar[i][j])))
+#             F.write('\n');
 
-    np.save("/Users/niwhskal/competency2d/visualisation/single_frames/src.npy", src)
-    np.save("/Users/niwhskal/competency2d/visualisation/single_frames/tar.npy", tar)
+#     np.save("/Users/niwhskal/competency2d/visualisation/single_frames/src.npy", src)
+#     np.save("/Users/niwhskal/competency2d/visualisation/single_frames/tar.npy", tar)
 
 
 
 if (__name__ == "__main__"):
-
-    # target = hf.load_from_txt("/Users/niwhskal/Downloads/smiley.png", 20)
-    # print(target.shape)
 
     rng = np.random.default_rng(12345)
     # save_scrambled_src(target, rng)
