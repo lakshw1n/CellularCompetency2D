@@ -59,7 +59,7 @@ def main():
     N_runs = 2
     N_indv = 100 #n of indviduals
     tar_shape = 20 #25
-    n_gen = 50
+    n_gen = 10
     comp_value = int((tar_shape**2)* 0.75)
     pf_Flag = True
     mut_rate = 0.3
@@ -176,13 +176,21 @@ def main():
     loop_end = time.time()
     print(f"loop time: {loop_end-loop_start} s")
 
-    np.save(gen_fname, g)
-    np.save(phen_fname, p)
-    np.save(comp_fname, cv)
-    np.save(dist_fname, dis)
+    np.save(gen_fname, g_fitnesses)
+    np.save(phen_fname, phen_fitnesses)
+    np.save(comp_fname, allCompVals)
+    np.save(dist_fname, allDistVals)
 
-    np.save(gen_state_fname, g_log[0])
-    np.save(phen_state_fname, p_log[0])
+    np.save(gen_state_fname, allGStates[0])
+    np.save(phen_state_fname, allPStates[0])
+
+    # np.save(gen_fname, g)
+    # np.save(phen_fname, p)
+    # np.save(comp_fname, cv)
+    # np.save(dist_fname, dis)
+
+    # np.save(gen_state_fname, g_log[0])
+    # np.save(phen_state_fname, p_log[0])
 
     hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target, plots_path)
 
