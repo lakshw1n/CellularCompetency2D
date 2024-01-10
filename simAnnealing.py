@@ -58,10 +58,10 @@ def main():
     stringency = 0.1
     N_runs = 2
     N_indv = 100 #n of indviduals
-    tar_shape = 50 #25
-    n_gen = 1000
+    tar_shape = 20 #25
+    n_gen = 50
     comp_value = int((tar_shape**2)* 0.75)
-    pf_Flag = False
+    pf_Flag = True
     mut_rate = 0.3
     N_mutations = int(np.ceil(tar_shape*0.3))
     plot_dist = True

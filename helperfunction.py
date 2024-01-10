@@ -458,11 +458,12 @@ def apply_competency_single_idv(src, tar, comp_value, plasticity_flag, rng):
         if (break_flag):
             break
 
-    return overall_mvs, overall_dist
+    return overall_mvs, overall_dist, src
 
 
 def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_flag):
     src_pop = src_pop_main.copy()
+    src_pop_ret = []
     used_moves = []
     distance_log = []
     if src_pop.shape[0] == 0:
@@ -477,7 +478,7 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
     pool_start = time.time()
     evolveArgs = [*zip(src_pop, [tar]*src_pop_size, [comp_value]*src_pop_size, [plasticity_flag]*src_pop_size, [rng]*src_pop_size)]
     pool = multiprocessing.Pool(os.cpu_count() - 1)
-    used_moves, distance_log = [*zip(*pool.starmap(apply_competency_single_idv, iterable=evolveArgs))]
+    used_moves, distance_log, src_pop_ret = [*zip(*pool.starmap(apply_competency_single_idv, iterable=evolveArgs))]
     pool_end = time.time()
     print(f"Time (pool): {pool_end - pool_start} s")
 
@@ -514,7 +515,7 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
     #     used_moves.append(overall_mvs)
     #     distance_log.append(overall_dist)
 
-    return src_pop, used_moves, distance_log
+    return np.array(src_pop_ret), used_moves, distance_log
 
 def selection(src_pop, phen_fitness, N, stringency = 0.1):
 
