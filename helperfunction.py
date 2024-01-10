@@ -29,7 +29,8 @@ def scramble(tar, rng):
         raise Exception("target empty\n")
 
     temp = tar.copy()
-    rng.shuffle(temp)
+    rng.shuffle(temp, axis = 0)
+    rng.shuffle(temp, axis = 1)
 
     return temp
 
@@ -323,9 +324,6 @@ def purge_emptykeys(stressed_dict):
     for i in del_again:
         delete_pos(stressed_dict, i, -100, hard_delete = 2)
 
-
-
-
 def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count, current_dist_count):
     #for each stressed cell find the maximum to_be_idx signal value
     #move once for each position
@@ -432,6 +430,36 @@ def remove_faroffcells(stressed_dict):
     for val_to_del in to_del:
         delete_pos(stressed_dict, val_to_del, -100, hard_delete = 2)
 
+def apply_competency_single_idv(src, tar, comp_value, plasticity_flag, rng):
+
+    overall_mvs = 0
+    overall_dist = 0
+    stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
+    while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
+        stress = get_stress(src, tar)
+        neighbor_requirement = get_required_neighbors(src, tar, stress)
+        stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+
+        # delete cells with empty values or those with a value of 0.0
+        purge_emptykeys(stressed_dict)
+
+        if (plasticity_flag == False):
+            # make sure only nearby cells exist
+            remove_faroffcells(stressed_dict)
+            # in case there's none, then break
+            if (len(stressed_dict) == 0):
+                break
+
+        stressed_dict_copy = stressed_dict.copy()
+
+        mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
+        overall_mvs = mvs
+        overall_dist = tot_dist
+        if (break_flag):
+            break
+
+    return overall_mvs, overall_dist
+
 
 def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_flag):
     src_pop = src_pop_main.copy()
@@ -444,37 +472,47 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
         raise Exception("competency must be a positive integer\n")
 
     #parallelize
-    for curr_n, src in enumerate(src_pop):
-        print("Idv: " + str(curr_n) +"/"+str(src_pop.shape[0]))
+    src_pop_size = src_pop.shape[0]
 
-        overall_mvs = 0
-        overall_dist = 0
-        stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
-        while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
-            stress = get_stress(src, tar)
-            neighbor_requirement = get_required_neighbors(src, tar, stress)
-            stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+    pool_start = time.time()
+    evolveArgs = [*zip(src_pop, [tar]*src_pop_size, [comp_value]*src_pop_size, [plasticity_flag]*src_pop_size, [rng]*src_pop_size)]
+    pool = multiprocessing.Pool(os.cpu_count() - 1)
+    used_moves, distance_log = [*zip(*pool.starmap(apply_competency_single_idv, iterable=evolveArgs))]
+    pool_end = time.time()
+    print(f"Time (pool): {pool_end - pool_start} s")
 
-            # delete cells with empty values or those with a value of 0.0
-            purge_emptykeys(stressed_dict)
+    #non-parallel execution
+    # for curr_n, src in enumerate(src_pop):
+    #     print("Idv: " + str(curr_n) +"/"+str(src_pop.shape[0]))
 
-            if (plasticity_flag == False):
-                # make sure only nearby cells exist
-                remove_faroffcells(stressed_dict)
-                # in case there's none, then break
-                if (len(stressed_dict) == 0):
-                    break
+    #     overall_mvs = 0
+    #     overall_dist = 0
+    #     stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
+    #     while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
+    #         stress = get_stress(src, tar)
+    #         neighbor_requirement = get_required_neighbors(src, tar, stress)
+    #         stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
 
-            stressed_dict_copy = stressed_dict.copy()
+    #         # delete cells with empty values or those with a value of 0.0
+    #         purge_emptykeys(stressed_dict)
 
-            mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
-            overall_mvs = mvs
-            overall_dist = tot_dist
-            if (break_flag):
-                break
+    #         if (plasticity_flag == False):
+    #             # make sure only nearby cells exist
+    #             remove_faroffcells(stressed_dict)
+    #             # in case there's none, then break
+    #             if (len(stressed_dict) == 0):
+    #                 break
 
-        used_moves.append(overall_mvs)
-        distance_log.append(overall_dist)
+    #         stressed_dict_copy = stressed_dict.copy()
+
+    #         mvs, tot_dist, break_flag = move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, current_move_count = overall_mvs, current_dist_count = overall_dist)
+    #         overall_mvs = mvs
+    #         overall_dist = tot_dist
+    #         if (break_flag):
+    #             break
+
+    #     used_moves.append(overall_mvs)
+    #     distance_log.append(overall_dist)
 
     return src_pop, used_moves, distance_log
 
@@ -822,12 +860,17 @@ def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states,
 
 
 if __name__ == "__main__":
-    # rng = np.random.default_rng(12345)
-    # tar = load_from_txt("./smiley.png", 35)
-    # all_frames = [scramble(tar, rng) for i in range(100)]
+    rng = np.random.default_rng(12345)
+    tar = load_from_txt("./smiley.png", 35)
+    all_frames = [scramble(tar, rng) for i in range(100)]
 
+    plt.matshow(all_frames[10])
+    plt.show()
+    # fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=200)
+    # fig.tight_layout()
+    # ax.axis(False)
     # anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=100, interval=1)
     # writervideo = animation.FFMpegWriter(fps=2)
     # anim_created.save('smiley_scrambled.mp4', writer=writervideo)
-    print("hello")
+    # print("hello")
     #test

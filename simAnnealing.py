@@ -56,12 +56,12 @@ import multiprocessing
 
 def main():
     stringency = 0.1
-    N_runs = 5
+    N_runs = 2
     N_indv = 100 #n of indviduals
-    tar_shape = 100 #25
-    n_gen = 2000
+    tar_shape = 50 #25
+    n_gen = 1000
     comp_value = int((tar_shape**2)* 0.75)
-    pf_Flag = True
+    pf_Flag = False
     mut_rate = 0.3
     N_mutations = int(np.ceil(tar_shape*0.3))
     plot_dist = True
@@ -108,7 +108,7 @@ def main():
     #                      [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
 
     # ---
-    target = hf.load_from_txt(os.path.join(cwd, "./smiley.png"), tar_shape)
+    target = hf.load_from_txt(os.path.join(cwd, "./rose.png"), tar_shape)
     print(target.shape)
 
     g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
@@ -120,61 +120,61 @@ def main():
     allPStates = {}
 
 
-    tarArgs = [target]*N_runs
-    idvArgs = [N_indv]*N_runs
-    rngArgs = [rng]*N_runs
+    # tarArgs = [target]*N_runs
+    # idvArgs = [N_indv]*N_runs
+    # rngArgs = [rng]*N_runs
 
-    srcArgs = [*zip(tarArgs, idvArgs, rngArgs)]
+    # srcArgs = [*zip(tarArgs, idvArgs, rngArgs)]
 
 
-    loop_start = time.time()
-    src_popAll = []
-    for i in range(N_runs):
-     src_popAll.append(hf.get_init_pop(target, N_indv, rng))
+    # loop_start = time.time()
+    # src_popAll = []
+    # for i in range(N_runs):
+    #  src_popAll.append(hf.get_init_pop(target, N_indv, rng))
+
+    # loop_end = time.time()
+    # print(f"Time (loop): {loop_end - loop_start} s")
+
+    # g = []
+    # p = []
+    # cv = []
+    # dis = []
+    # g_log = []
+    # p_log = []
+
+    # evolveArgs = [*zip(src_popAll, tarArgs, [n_gen]*N_runs, [comp_value]*N_runs, rngArgs, [pf_Flag]*N_runs, [mut_rate]*N_runs, [N_mutations]*N_runs, idvArgs, [*range(N_runs)], [switch_at]*N_runs, [p_recalc]*N_runs)]
+
+    # pool_start = time.time()
+    # pool = multiprocessing.Pool(os.cpu_count() -1)
+    # g, p, cv, dis, g_log, p_log = [*zip(*pool.starmap(hf.evolve, iterable=evolveArgs))]
+    # pool_end = time.time()
+    # print(f"Time (pool): {pool_end - pool_start} s")
+
+    # g = np.array(g)
+    # p = np.array(p)
+    # cv = np.array(cv)
+    # dis = np.array(dis)
+    # # g_log = np.array(g_log)
+    # # p_log = np.array(p_log)
+
+
+    #old code: non-parallelized execution
+
+    loop_start= time.time()
+    for curr_run in range(N_runs):
+        src_pop = hf.get_init_pop(target, N_indv, rng)
+        g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
+
+        g_fitnesses[curr_run] = g
+        phen_fitnesses[curr_run] = p
+        allCompVals[curr_run] = cv
+        allDistVals[curr_run] = dis
+
+        allGStates[curr_run] = g_log
+        allPStates[curr_run] = p_log
 
     loop_end = time.time()
-    print(f"Time (loop): {loop_end - loop_start} s")
-
-    g = []
-    p = []
-    cv = []
-    dis = []
-    g_log = []
-    p_log = []
-
-    evolveArgs = [*zip(src_popAll, tarArgs, [n_gen]*N_runs, [comp_value]*N_runs, rngArgs, [pf_Flag]*N_runs, [mut_rate]*N_runs, [N_mutations]*N_runs, idvArgs, [*range(N_runs)], [switch_at]*N_runs, [p_recalc]*N_runs)]
-
-    pool_start = time.time()
-    pool = multiprocessing.Pool(os.cpu_count() -1)
-    g, p, cv, dis, g_log, p_log = [*zip(*pool.starmap(hf.evolve, iterable=evolveArgs))]
-    pool_end = time.time()
-    print(f"Time (pool): {pool_end - pool_start} s")
-
-    g = np.array(g)
-    p = np.array(p)
-    cv = np.array(cv)
-    dis = np.array(dis)
-    # g_log = np.array(g_log)
-    # p_log = np.array(p_log)
-
-
-     # old code: non-parallelized execution
-
-     # loop_start= time.time()
-     # for curr_run in range(N_runs):
-     #     src_pop = hf.get_init_pop(target, N_indv, rng)
-     #     g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
-
-     #     g_fitnesses[curr_run] = g
-     #     phen_fitnesses[curr_run] = p
-     #     allCompVals[curr_run] = cv
-     #     allDistVals[curr_run] = dis
-
-     #     allGStates[curr_run] = g_log
-     #     allPStates[curr_run] = p_log
-
-     # loop_end = time.time()
-     # print(f"loop time: {loop_end-loop_start} s")
+    print(f"loop time: {loop_end-loop_start} s")
 
     np.save(gen_fname, g)
     np.save(phen_fname, p)
