@@ -56,10 +56,10 @@ import multiprocessing
 
 def main():
     stringency = 0.1
-    N_runs = 2
+    N_runs = 1
     N_indv = 100 #n of indviduals
-    tar_shape = 20 #25
-    n_gen = 10
+    tar_shape = 50 #25
+    n_gen = 1000
     comp_value = int((tar_shape**2)* 0.75)
     pf_Flag = True
     mut_rate = 0.3
@@ -108,7 +108,7 @@ def main():
     #                      [0, 0, 0, 0, 0, 0,1, 0, 0, 0],[0, 0, 0, 0, 0, 0,0, 1, 0, 0],[0, 0, 0, 0, 0, 0,0, 0, 1, 0], [0, 0, 0, 0, 0, 0,0, 0, 0, 1]])
 
     # ---
-    target = hf.load_from_txt(os.path.join(cwd, "./rose.png"), tar_shape)
+    target = hf.load_from_txt(os.path.join(cwd, "./smiley.png"), tar_shape)
     print(target.shape)
 
     g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
