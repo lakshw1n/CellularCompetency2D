@@ -5,9 +5,10 @@
 #Evolution of 2D stress based competency
 
 import os
-import time
-import numpy as np
 import cv2
+import time
+import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 import helperfunction as hf
 import multiprocessing
@@ -56,16 +57,40 @@ import multiprocessing
 
 def main():
     stringency = 0.1
-    N_runs = 2
+    N_runs = 10
     N_indv = 100 #n of indviduals
     tar_shape = 10 #25
-    n_gen = 10
+    n_gen = 1000
     comp_value = int((tar_shape**2)* 0.75)*7
     pf_Flag = False
     mut_rate = 0.3
     N_mutations = int(np.ceil(tar_shape*0.3))
     plot_dist = True
     save_every = 5 #once every 50 generations
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-t", "--tar_shape", type=int)
+    parser.add_argument("-ng", "--n_gen", type=int, default = 1000)
+    parser.add_argument("-pf", "--plasticity_flag", type=str)
+    parser.add_argument("-sf", "--save_frequency", type=int)
+
+    args = parser.parse_args()
+
+    tar_shape = args.tar_shape
+    n_gen = args.n_gen
+    if (args.plasticity_flag == "hw"):
+        pf_Flag = "hw"
+
+    elif (args.plasticity_flag == "True"):
+        pf_Flag = True
+
+    elif (args.plasticity_flag == "False"):
+        pf_Flag = False
+
+    else:
+        raise Exception("unknown plasticity flag")
+
+    save_every = args.save_frequency
 
     cwd = os.getcwd()
     src_dir = os.path.join(cwd, f"save_output/plasticity_{pf_Flag}/")
@@ -82,7 +107,7 @@ def main():
 
     switch_at = 0#round(n_gen/2)
 
-    print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \n n_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n")
+    print(f"Settings:\n pf_flag: {pf_Flag} \nruns: {N_runs} \nn_gen: {n_gen}\ncomp_value: {comp_value}\n Shape: {tar_shape}\nn_indv: {N_indv}\nplot_dist: {plot_dist}\n save_frequency: {save_every}\n")
 
     if (switch_at ==0):
         gen_fname = f"{src_dir}/gen_matrix{pf_Flag}_{tar_shape}.npy"
@@ -114,7 +139,6 @@ def main():
 
     # ---
     target = hf.load_from_txt(os.path.join(cwd, "./smiley.png"), tar_shape)
-    print(target.shape)
 
     g_fitnesses = np.zeros((N_runs, n_gen, N_indv))
     phen_fitnesses = np.zeros((N_runs, n_gen, N_indv))
@@ -203,9 +227,7 @@ def main():
         if(curr_run > to_resume_run_num):
             src_pop = hf.get_init_pop(target, N_indv, rng)
             load_flag = False
-        print('\n')
-        print(curr_run)
-        print('\n')
+
         g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc, save_every, checkpoint_dir, g_fitnesses, phen_fitnesses, allCompVals, allDistVals, load_flag)
 
         g_fitnesses[curr_run] = g
@@ -216,9 +238,6 @@ def main():
         allGStates[curr_run] = g_log
         allPStates[curr_run] = p_log
 
-    loop_end = time.time()
-    print(f"loop time: {loop_end-loop_start} s")
-
     np.save(gen_fname, g_fitnesses)
     np.save(phen_fname, phen_fitnesses)
     np.save(comp_fname, allCompVals)
@@ -227,19 +246,7 @@ def main():
     np.save(gen_state_fname, allGStates[curr_run])
     np.save(phen_state_fname, allPStates[curr_run])
 
-    # np.save(gen_fname, g)
-    # np.save(phen_fname, p)
-    # np.save(comp_fname, cv)
-    # np.save(dist_fname, dis)
-
-    # np.save(gen_state_fname, g_log[0])
-    # np.save(phen_state_fname, p_log[0])
-
     hf.plot(gen_fname, phen_fname, comp_fname, dist_fname, gen_state_fname, phen_state_fname, tar_shape, pf_Flag, comp_value, plot_dist, target, plots_path)
-
-
-    # run_singleidv_test(target, rng)
-    # run_dict_purgetest(rng)
 
 def run_singleidv_test(target, rng):
     src = hf.get_init_pop(target, 100, rng)
@@ -249,53 +256,8 @@ def run_singleidv_test(target, rng):
     src, mvs, dist = hf.apply_competency(src, target, 1000, rng, 1.0, True)
     print(f"run: {run_count} | moves: {mvs} | dist: {dist} | fitness: {hf.fitness(src, target)}")
 
-def run_dict_purgetest(rng):
-    d = {}
-    for i in range(20):
-        temp = {}
-        for j in range(10):
-            if (rng.random() <0.5):
-                val = 0.0
-
-            else:
-                val = rng.random()
-
-
-            first, sec = rng.integers(10, size = 2)
-            temp[tuple([first, sec])] = val
-
-        first_o, sec_o = rng.integers(10, size = 2)
-
-        d[tuple([first_o, sec_o])] = temp
-
-    hf.purge_emptykeys(d)
-
-    print(d)
-
-
-# def save_scrambled_src(tar, rng):
-#     src = hf.scramble(tar, rng)
-#     src = src.astype(np.int32)
-#     with open('/Users/niwhskal/p5_test.js/src.txt', 'w') as F:
-#         for i in range(src.shape[0]):
-#             for j in range(src.shape[1]):
-#                 F.write(str(int(src[i][j])))
-#             F.write('\n');
-
-#     with open('/Users/niwhskal/p5_test.js/tar.txt', 'w') as F:
-#         for i in range(tar.shape[0]):
-#             for j in range(tar.shape[1]):
-#                 F.write(str(int(tar[i][j])))
-#             F.write('\n');
-
-#     np.save("/Users/niwhskal/competency2d/visualisation/single_frames/src.npy", src)
-#     np.save("/Users/niwhskal/competency2d/visualisation/single_frames/tar.npy", tar)
-
-
 
 if (__name__ == "__main__"):
 
     rng = np.random.default_rng(12345)
-    # save_scrambled_src(target, rng)
-
     main()
