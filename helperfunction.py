@@ -176,7 +176,7 @@ def send_graded_signal(neighbor_requirement, src, stress):
     x,y = np.where(stress !=0)
 
     vote_dict = {(i,j): 0.0 for i,j in zip(x,y)}
-    stressed_dict = {(i,j): vote_dict for i,j in zip(x,y)}
+    stressed_dict = {(i,j): vote_dict for i,j in zip(x,y)} #from_stress_pos : list of to_stress_pos
 
     A = 1.0
     sigmas = np.array([3*src.shape[0]//6, 3*src.shape[1]//6])
@@ -437,6 +437,7 @@ def apply_competency_single_idv(src, tar, comp_value, plasticity_flag, rng):
     stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
     while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
         stress = get_stress(src, tar)
+
         neighbor_requirement = get_required_neighbors(src, tar, stress)
         stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
 
@@ -569,23 +570,38 @@ def point_mutate(pop, mut_rate, N_mut, N, rng):
     return mut_pop
 
 
-def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_num, switch_at, p_recalc):
+def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_num, switch_at, p_recalc, save_every, save_path, gf_mat, pf_mat, c_mat, d_mat, load_flag):
+
     gen_matrix = np.zeros((n_gen, src_pop.shape[0]))
     phen_matrix = np.zeros((n_gen, src_pop.shape[0]))
-
     comp_vals = np.zeros((n_gen, src_pop.shape[0]))
     dist_log = np.zeros((n_gen, src_pop.shape[0]))
     gen_state_log = {}
     phen_state_log = {}
+
+    if (load_flag == True):
+        print('\n')
+        print("Updating current run fitnesses ...")
+        print('\n')
+        save_meta = np.load(os.path.join(save_path, "save_metadata.npy"), allow_pickle = True)
+        run_num = save_meta[0]
+        strt_i = save_meta[1]
+
+        gen_matrix[:strt_i+1] = gf_mat[run_num, :strt_i+1]
+        phen_matrix[:strt_i+1] = pf_mat[run_num, :strt_i+1]
+        comp_vals[:strt_i+1] = c_mat[run_num, :strt_i+1]
+        dist_log[:strt_i+1] = d_mat[run_num, :strt_i+1]
+
+    else:
+        strt_i = -1
 
     if (pflag == "hw"):
         comp_value = 0
         print("HW run, setting competency to 0")
 
 
-
     print(f"pflag: {pflag}")
-    for i in range(n_gen):
+    for i in range(strt_i+1, n_gen):
         start_time = time.time()
 
         genotypic_fitness = [fitness(src, tar) for src in src_pop]
@@ -602,7 +618,6 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
                 pflag = "hw"
 
             print(f"Switched pflag to: {pflag}")
-
 
         mod_pop, used_moves, tot_dist = apply_competency(src_pop, tar, comp_value, rng, p_recalc, plasticity_flag= pflag)
 
@@ -626,6 +641,40 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
         print(f"Last iteration took: {end_time-start_time}s")
 
         print(f" Run: {run_num} | Gen: {i} | gen_ftn: {genotypic_fitness[best_indv_idx]}| p_ftn: {phenotypic_fitness[best_indv_idx]} | used comp: {used_moves[best_indv_idx]} | dist: {tot_dist[best_indv_idx]} | pop_dist(avg): {np.mean(tot_dist)}")
+
+        if ((i) % save_every == 0 and i != 0):
+            print("\n")
+            print(f"saving... run: {run_num}, gen: {i}")
+            print("\n")
+            #check if save dir exists, if not create one
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+            #save run_num and generation
+            save_info = np.array([run_num, i])
+            np.save(os.path.join(save_path, "save_metadata"), save_info)
+
+            #save current_pop
+            np.save(os.path.join(save_path, f"src_pop_{tar.shape[0]}_{pflag}"), src_pop)
+
+            #save genotypic fitness
+            gf_mat[run_num, :i+1] = gen_matrix[:i+1, :]
+            np.save(os.path.join(save_path, f"gen_fitness_{tar.shape[0]}_{pflag}"), gf_mat)
+
+            #save phenotypic fitness
+            pf_mat[run_num, :i+1] = phen_matrix[:i+1, :]
+            np.save(os.path.join(save_path, f"phen_fitness_{tar.shape[0]}_{pflag}"), pf_mat)
+
+            #save Comp_vals
+            c_mat[run_num, :i+1] = comp_vals[:i+1, :]
+            np.save(os.path.join(save_path, f"comp_vals_{tar.shape[0]}_{pflag}"), c_mat)
+
+            #save distance vals
+            d_mat[run_num, :i+1] = dist_log[:i+1, :]
+            np.save(os.path.join(save_path, f"dist_vals_{tar.shape[0]}_{pflag}"), d_mat)
+
+            #save rng state
+            np.save(os.path.join(save_path, f"rng_state_{tar.shape[0]}_{pflag}"), rng.bit_generator.state)
 
     return gen_matrix, phen_matrix, comp_vals, dist_log, gen_state_log, phen_state_log
 

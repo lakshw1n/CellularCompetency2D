@@ -56,22 +56,27 @@ import multiprocessing
 
 def main():
     stringency = 0.1
-    N_runs = 1
+    N_runs = 2
     N_indv = 100 #n of indviduals
-    tar_shape = 50 #25
-    n_gen = 1000
-    comp_value = int((tar_shape**2)* 0.75)
-    pf_Flag = True
+    tar_shape = 10 #25
+    n_gen = 10
+    comp_value = int((tar_shape**2)* 0.75)*7
+    pf_Flag = False
     mut_rate = 0.3
     N_mutations = int(np.ceil(tar_shape*0.3))
     plot_dist = True
+    save_every = 5 #once every 50 generations
 
     cwd = os.getcwd()
-    src_dir = os.path.join(cwd, f"output/plasticity_{pf_Flag}/")
+    src_dir = os.path.join(cwd, f"save_output/plasticity_{pf_Flag}/")
     plots_path = os.path.join(src_dir, "plots")
+    checkpoint_dir = os.path.join(src_dir, "checkpoints")
 
     if not os.path.exists(plots_path):
         os.makedirs(plots_path)
+
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
 
     p_recalc = 1.0 #increasing this value delays the time it takes to reach max fitness. Eg: a p_recalc probability of 1.0 takes ~300 generations more compared to a p_recalc prob of 0.3 in order to reach max fitness.
 
@@ -160,10 +165,48 @@ def main():
 
     #old code: non-parallelized execution
 
-    loop_start= time.time()
-    for curr_run in range(N_runs):
+    #check saved_data
+    try:
+        save_meta = np.load(os.path.join(checkpoint_dir, "save_metadata.npy"), allow_pickle = True)
+        to_resume_run_num = save_meta[0]
+        to_resume_gen_num = save_meta[1]
+        print("checkpoint found....")
+        print('\n')
+        print("loading saved files")
+        load_flag = True
+
+        try:
+            #load everything until run_n and gen_n
+            g_fitnesses = np.load(os.path.join(checkpoint_dir, f"gen_fitness_{target.shape[0]}_{pf_Flag}.npy"))
+            phen_fitnesses = np.load(os.path.join(checkpoint_dir, f"phen_fitness_{target.shape[0]}_{pf_Flag}.npy"))
+            allCompVals = np.load(os.path.join(checkpoint_dir, f"comp_vals_{target.shape[0]}_{pf_Flag}.npy"))
+            allDistVals = np.load(os.path.join(checkpoint_dir, f"dist_vals_{target.shape[0]}_{pf_Flag}.npy"))
+
+            src_pop = np.load(os.path.join(checkpoint_dir, f"src_pop_{target.shape[0]}_{pf_Flag}.npy"))
+
+            rng_state = np.load(os.path.join(checkpoint_dir, f"rng_state_{target.shape[0]}_{pf_Flag}.npy"), allow_pickle=True)
+
+            rng.bit_generator.state = rng_state[()]
+
+        except Exception as e:
+            raise Exception(e)
+
+    except FileNotFoundError:
+        print("NO SAVE FILE FOUND")
+        to_resume_run_num = 0
+        to_resume_gen_num = 0
         src_pop = hf.get_init_pop(target, N_indv, rng)
-        g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc)
+        load_flag = False
+
+    loop_start= time.time()
+    for curr_run in range(to_resume_run_num, N_runs):
+        if(curr_run > to_resume_run_num):
+            src_pop = hf.get_init_pop(target, N_indv, rng)
+            load_flag = False
+        print('\n')
+        print(curr_run)
+        print('\n')
+        g, p, cv, dis, g_log, p_log = hf.evolve(src_pop, target, n_gen, comp_value, rng, pf_Flag, mut_rate, N_mutations, N_indv, curr_run, switch_at, p_recalc, save_every, checkpoint_dir, g_fitnesses, phen_fitnesses, allCompVals, allDistVals, load_flag)
 
         g_fitnesses[curr_run] = g
         phen_fitnesses[curr_run] = p
@@ -181,8 +224,8 @@ def main():
     np.save(comp_fname, allCompVals)
     np.save(dist_fname, allDistVals)
 
-    np.save(gen_state_fname, allGStates[0])
-    np.save(phen_state_fname, allPStates[0])
+    np.save(gen_state_fname, allGStates[curr_run])
+    np.save(phen_state_fname, allPStates[curr_run])
 
     # np.save(gen_fname, g)
     # np.save(phen_fname, p)
