@@ -61,10 +61,8 @@ def main():
     N_indv = 100 #n of indviduals
     tar_shape = 10 #25
     n_gen = 1000
-    comp_value = int((tar_shape**2)* 0.75)*7
     pf_Flag = False
     mut_rate = 0.3
-    N_mutations = int(np.ceil(tar_shape*0.3))
     plot_dist = True
     save_every = 5 #once every 50 generations
 
@@ -91,6 +89,8 @@ def main():
         raise Exception("unknown plasticity flag")
 
     save_every = args.save_frequency
+    comp_value = int((tar_shape**2)* 0.75)*7
+    N_mutations = int(np.ceil(tar_shape*0.3))
 
     cwd = os.getcwd()
     src_dir = os.path.join(cwd, f"save_output/plasticity_{pf_Flag}/")
