@@ -583,7 +583,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
         print('\n')
         print("Updating current run fitnesses ...")
         print('\n')
-        save_meta = np.load(os.path.join(save_path, f"save_metadata_{tar.shape[0]}_{pf_Flag}.npy"), allow_pickle = True)
+        save_meta = np.load(os.path.join(save_path, f"save_metadata_{tar.shape[0]}_{pflag}.npy"), allow_pickle = True)
         run_num = save_meta[0]
         strt_i = save_meta[1]
 
