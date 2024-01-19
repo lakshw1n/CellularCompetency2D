@@ -652,7 +652,7 @@ def evolve(src_pop, tar, n_gen, comp_value, rng, pflag, mut_rate, N_mut, N, run_
 
             #save run_num and generation
             save_info = np.array([run_num, i])
-            np.save(os.path.join(save_path, "save_metadata"), save_info)
+            np.save(os.path.join(save_path, f"save_metadata_{tar.shape[0]}_{pflag}"), save_info)
 
             #save current_pop
             np.save(os.path.join(save_path, f"src_pop_{tar.shape[0]}_{pflag}"), src_pop)

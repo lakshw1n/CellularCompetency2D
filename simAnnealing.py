@@ -191,7 +191,7 @@ def main():
 
     #check saved_data
     try:
-        save_meta = np.load(os.path.join(checkpoint_dir, "save_metadata.npy"), allow_pickle = True)
+        save_meta = np.load(os.path.join(checkpoint_dir, f"save_metadata_{target.shape[0]}_{pf_Flag}.npy"), allow_pickle = True)
         to_resume_run_num = save_meta[0]
         to_resume_gen_num = save_meta[1]
         print("checkpoint found....")
