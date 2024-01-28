@@ -61,7 +61,7 @@ def main():
     N_indv = 100 #n of indviduals
     tar_shape = 10 #25
     n_gen = 1000
-    pf_Flag = False
+    pf_Flag = True
     mut_rate = 0.3
     plot_dist = True
     save_every = 5 #once every 50 generations

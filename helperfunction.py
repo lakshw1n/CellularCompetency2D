@@ -158,10 +158,11 @@ def indv_cell_requirement(idx, src, tar, stress):
     return neighbor_list
 
 
-def get_required_neighbors(src, tar, stress):
+def get_required_neighbors(rng, src, tar, stress):
     # get indexes of fixed cells
     loc_x, loc_y = np.where(stress == 0)
     fixed_idxs = list(zip(loc_x, loc_y))
+    rng.shuffle(fixed_idxs)
 
     # for each fixed idx, get neighbor list
     neighbor_needs = {}
@@ -170,13 +171,16 @@ def get_required_neighbors(src, tar, stress):
 
     return neighbor_needs
 
-def send_graded_signal(neighbor_requirement, src, stress):
+def send_graded_signal(rng, neighbor_requirement, src, stress):
 
     # get stressed positions
     x,y = np.where(stress !=0)
 
-    vote_dict = {(i,j): 0.0 for i,j in zip(x,y)}
-    stressed_dict = {(i,j): vote_dict for i,j in zip(x,y)} #from_stress_pos : list of to_stress_pos
+    zipped_xy = list(zip(x, y))
+    rng.shuffle(zipped_xy)
+
+    vote_dict = {(i,j): 0.0 for i,j in zipped_xy}
+    stressed_dict = {(i,j): vote_dict for i,j in zipped_xy} #from_stress_pos : list of to_stress_pos
 
     A = 1.0
     sigmas = np.array([3*src.shape[0]//6, 3*src.shape[1]//6])
@@ -438,8 +442,8 @@ def apply_competency_single_idv(src, tar, comp_value, plasticity_flag, rng):
     while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
         stress = get_stress(src, tar)
 
-        neighbor_requirement = get_required_neighbors(src, tar, stress)
-        stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+        neighbor_requirement = get_required_neighbors(rng, src, tar, stress)
+        stressed_dict = send_graded_signal(rng, neighbor_requirement, src, stress)
 
         # delete cells with empty values or those with a value of 0.0
         purge_emptykeys(stressed_dict)
@@ -492,8 +496,8 @@ def apply_competency(src_pop_main, tar, comp_value, rng, p_recalc, plasticity_fl
     #     stressed_dict_copy = [-9999] #initialize with a single element so that the while loop runs atleast once
     #     while ((overall_mvs < comp_value) and (len(stressed_dict_copy))):
     #         stress = get_stress(src, tar)
-    #         neighbor_requirement = get_required_neighbors(src, tar, stress)
-    #         stressed_dict = send_graded_signal(neighbor_requirement, src, stress)
+    #         neighbor_requirement = get_required_neighbors(rng, src, tar, stress)
+    #         stressed_dict = send_graded_signal(rng, neighbor_requirement, src, stress)
 
     #         # delete cells with empty values or those with a value of 0.0
     #         purge_emptykeys(stressed_dict)
