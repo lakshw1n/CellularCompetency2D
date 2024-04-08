@@ -352,7 +352,7 @@ def move(stressed_dict, src, tar, stress, comp_value, plasticity_flag, rng, curr
 
         v = stressed_dict[tuple(from_pos)]
 
-        max_pos = np.argmax(v.values())
+        max_pos = np.argmax(list(v.values()))
         to_pos = list(v.keys())[max_pos]
 
         from_pos = np.array(from_pos)
