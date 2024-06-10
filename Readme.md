@@ -1,5 +1,4 @@
 ## 2D Stress based GA evolution
----
 
 Evolutionary experiments from the paper: [Stress Sharing as Cognitive Glue for Collective Intelligences: a computational model of stress as a coordinator for morphogenesis]
 
