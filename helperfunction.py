@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 
-#author: Lakshwin Shreesha
-#date: 9/09/2023
 #library functions for the stress based competency model
+#implements functions for the GA and the competency process
+
 import os
-import numpy as np
-import multiprocessing
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib
-from matplotlib import animation
-import time
-import multiprocessing
 import cv2
+import time
+import matplotlib
+import numpy as np
+import multiprocessing
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from matplotlib import animation
 
 def load_from_txt(fname, tar_shape):
     im = cv2.imread(fname, cv2.IMREAD_GRAYSCALE)
