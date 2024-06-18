@@ -204,50 +204,6 @@ def send_graded_signal(rng, neighbor_requirement, src, stress):
 
     return stressed_dict
 
-
-#def calc_moves(from_pos, to_pos):
-#    #check if to-position is below from-pos or vice-versa
-#    f = from_pos.copy()
-#    t = to_pos.copy()
-
-#    moves = 0
-#    while (f[0]!=t[0] or f[1]!=t[1]):
-#        if (t[0]>f[0] or t[1]>f[1]):
-
-#            #move diagnonally
-#            if (t[0]>f[0] and t[1]>f[1]):
-#                f[0] += 1
-#                f[1] += 1
-
-#            #move down
-#            elif(t[0]>f[0]):
-#                f[0] += 1
-
-#            #move right
-#            elif (t[1]>f[1]):
-#                f[1] += 1
-
-
-#        #if to-position is above from-position
-#        elif (t[0]<f[0] or t[1]<f[1]):
-
-#            #move diagnonally
-#            if (t[0]<f[0] and t[1]<f[1]):
-#                f[0] -= 1
-#                f[1] -= 1
-
-#            #move up
-#            elif(t[0]<f[0]):
-#                f[0] -= 1
-
-#            #move left
-#            elif (t[1]<f[1]):
-#                f[1] -= 1
-
-#        moves += 1
-
-#    return moves
-
 def delete_pos(stressed_dict, from_pos, to_pos, hard_delete = 1):
     if len(stressed_dict)==0:
         return 0
@@ -823,9 +779,6 @@ def create_movie(gen_fitness, phen_fitness, comp_list, gen_states, phen_states, 
     all_gen_states = np.array(list(gen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
     all_phen_states = np.array(list(phen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
 
-    # out_gen = cv2.VideoWriter(os.path.join(save_path, f"genotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
-    # out_phen = cv2.VideoWriter(os.path.join(save_path, f"phenotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
-
     gen_plot_frames = []
     phen_plot_frames = []
 
@@ -866,9 +819,6 @@ def create_highletedFrameMovie(gen_fitness, phen_fitness, comp_list, gen_states,
 
     all_gen_states = np.array(list(gen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
     all_phen_states = np.array(list(phen_states.values())).reshape(phen_fitness.shape[0], -1, tar_shape, tar_shape)
-
-    # out_gen = cv2.VideoWriter(os.path.join(save_path, f"genotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
-    # out_phen = cv2.VideoWriter(os.path.join(save_path, f"phenotypes_{pflag}.avi"),cv2.VideoWriter_fourcc(*'DIVX'), 15, (tar_shape, tar_shape), 0)
 
     gen_plot_frames = []
     phen_plot_frames = []
@@ -918,11 +868,3 @@ if __name__ == "__main__":
 
     plt.matshow(all_frames[10])
     plt.show()
-    # fig, ax = plt.subplots(1, 1, figsize=(5,5), dpi=200)
-    # fig.tight_layout()
-    # ax.axis(False)
-    # anim_created = animation.FuncAnimation(fig, ImageAnimation, frames=100, interval=1)
-    # writervideo = animation.FFMpegWriter(fps=2)
-    # anim_created.save('smiley_scrambled.mp4', writer=writervideo)
-    # print("hello")
-    #test
